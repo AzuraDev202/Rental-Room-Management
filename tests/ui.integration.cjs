@@ -50,6 +50,12 @@ const uid = "00000000-0000-0000-0000-000000000001",
       "utf8",
     ),
   );
+  await db.exec(
+    fs.readFileSync(
+      root + "/supabase/migrations/202610080007_remove_workspace_member.sql",
+      "utf8",
+    ),
+  );
   const browser = await chromium.launch({
     headless: true,
     ...(process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH
@@ -1221,6 +1227,51 @@ const uid = "00000000-0000-0000-0000-000000000001",
     ])
   ).rows;
   assert.equal(periodBills.length, 2);
+  await db.exec("reset role");
+  await db.query(
+    `insert into memberships(organization_id,user_id,role,display_name,email) values($1,$2,'viewer','Delete Test','viewer@test.invalid') on conflict(organization_id,user_id) do update set display_name='Delete Test'`,
+    [archiveOrg, vid],
+  );
+  await db.exec("set role authenticated");
+  await page.reload({ waitUntil: "networkidle" });
+  await page
+    .getByLabel("Không gian quản lý", { exact: true })
+    .selectOption(archiveOrg);
+  await page.getByRole("button", { name: "Cài đặt", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Xóa người dùng Delete Test", exact: true })
+    .click();
+  await page
+    .getByLabel("Nhập email người dùng để xác nhận")
+    .fill("wrong@test.invalid");
+  await page
+    .getByRole("button", { name: "Xác nhận xóa người dùng", exact: true })
+    .click();
+  await page.getByText("Email xác nhận không khớp", { exact: true }).waitFor();
+  await page
+    .getByLabel("Nhập email người dùng để xác nhận")
+    .fill("viewer@test.invalid");
+  await page
+    .getByRole("button", { name: "Xác nhận xóa người dùng", exact: true })
+    .click();
+  await page
+    .getByText("Đã xóa quyền truy cập của người dùng", { exact: true })
+    .waitFor();
+  assert.equal(
+    await page
+      .getByRole("button", { name: "Xóa người dùng Delete Test", exact: true })
+      .count(),
+    0,
+  );
+  assert.equal(
+    (
+      await db.query(
+        `select * from memberships where organization_id=$1 and user_id=$2`,
+        [archiveOrg, vid],
+      )
+    ).rows.length,
+    0,
+  );
   assert.deepEqual(errors, []);
   console.log(
     "PASS: login, empty database, workspace, property rent, room rent, service rates, invitation, tenant, contract upload, invoice, partial payment, reload persistence, mobile layout, viewer permissions, shared document archive after departure, newcomer isolation, vacant property deletion with retained tenant/payment history, service history panel removed, vacancy states and move-in baselines, shared occupancy without reset, same-month separate cycles. Backend = local PostgreSQL with real migration; Auth/Storage HTTP simulated.",

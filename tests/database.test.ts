@@ -78,6 +78,12 @@ test("migration, authorization and billing integration", async (t) => {
       "utf8",
     ),
   );
+  await db.exec(
+    readFileSync(
+      "supabase/migrations/202610080007_remove_workspace_member.sql",
+      "utf8",
+    ),
+  );
   await t.test("fresh database contains no example business data", async () => {
     for (const table of [
       "organizations",
@@ -1196,6 +1202,91 @@ test("migration, authorization and billing integration", async (t) => {
         `update tenants set billing_cycle_id=$1 where id=$2`,
         [next.billing_cycle_id, futureShared.id],
         /permission denied/,
+      );
+    },
+  );
+  await t.test(
+    "admin removes workspace access while preserving users, history and last admin",
+    async () => {
+      await as(users.manager);
+      await reject(
+        `select public.remove_workspace_member($1,$2,'viewer@test.invalid')`,
+        [org, users.viewer],
+        /quyền quản trị/,
+      );
+      await as(users.viewer);
+      await reject(
+        `select public.remove_workspace_member($1,$2,'manager@test.invalid')`,
+        [org, users.manager],
+        /quyền quản trị/,
+      );
+      await as(users.owner);
+      await reject(
+        `select public.remove_workspace_member($1,$2,'owner@test.invalid')`,
+        [org, users.owner],
+        /ít nhất một quản trị viên/,
+      );
+      await reject(
+        `select public.remove_workspace_member($1,$2,'other@test.invalid')`,
+        [otherOrg, users.outsider],
+        /quyền quản trị/,
+      );
+      await reject(
+        `select public.remove_workspace_member($1,$2,'wrong@test.invalid')`,
+        [org, users.viewer],
+        /Email xác nhận/,
+      );
+      await db.query(
+        `insert into invitations(organization_id,email,role) values($1,'viewer@test.invalid','viewer') on conflict do nothing`,
+        [org],
+      );
+      const before = await query(
+        `select id,total from invoices where organization_id=$1 order by id`,
+        [org],
+      );
+      await db.query(
+        `select public.remove_workspace_member($1,$2,'viewer@test.invalid')`,
+        [org, users.viewer],
+      );
+      assert.equal(
+        (
+          await query(
+            `select * from memberships where organization_id=$1 and user_id=$2`,
+            [org, users.viewer],
+          )
+        ).length,
+        0,
+      );
+      assert.equal(
+        (
+          await query(
+            `select * from invitations where organization_id=$1 and email='viewer@test.invalid'`,
+            [org],
+          )
+        ).length,
+        0,
+      );
+      assert.deepEqual(
+        await query(
+          `select id,total from invoices where organization_id=$1 order by id`,
+          [org],
+        ),
+        before,
+      );
+      await as(users.viewer);
+      assert.equal(
+        (
+          await query(`select * from properties where organization_id=$1`, [
+            org,
+          ])
+        ).length,
+        0,
+      );
+      await db.exec("reset role");
+      assert.equal(
+        (await query(`select * from auth.users where id=$1`, [users.viewer]))
+          .length,
+        1,
       );
     },
   );

@@ -5,7 +5,7 @@
 ## 1. Tạo và cấu hình Supabase
 
 1. Tạo dự án tại https://supabase.com/dashboard. Chọn vùng gần Việt Nam và lưu mật khẩu database trong trình quản lý mật khẩu.
-2. Mở **SQL Editor**, chạy lần lượt `supabase/migrations/202610080001_hh_home.sql` rồi `supabase/migrations/202610080002_property_service_rates.sql` rồi `supabase/migrations/202610080003_delete_property.sql` và `supabase/migrations/202610080004_tenant_document_history.sql` và `supabase/migrations/202610080005_delete_vacant_property.sql` rồi `supabase/migrations/202610080006_room_move_in_readings.sql`, mỗi file một lần trên dự án mới. Migration tạo bảng, RPC, RLS và bucket `contracts` riêng tư; không tạo dữ liệu căn hộ/người thuê/hóa đơn.
+2. Mở **SQL Editor**, chạy lần lượt `supabase/migrations/202610080001_hh_home.sql` rồi `supabase/migrations/202610080002_property_service_rates.sql` rồi `supabase/migrations/202610080003_delete_property.sql` và `supabase/migrations/202610080004_tenant_document_history.sql` và `supabase/migrations/202610080005_delete_vacant_property.sql` rồi `supabase/migrations/202610080006_room_move_in_readings.sql` rồi `supabase/migrations/202610080007_remove_workspace_member.sql`, mỗi file một lần trên dự án mới. Migration tạo bảng, RPC, RLS và bucket `contracts` riêng tư; không tạo dữ liệu căn hộ/người thuê/hóa đơn.
 3. Trong **Authentication → Providers → Email**, bật đăng ký email/password và **Confirm email**. Thiết lập mật khẩu tối thiểu 8 ký tự. Với môi trường production, cấu hình SMTP để gửi email xác nhận và đặt lại mật khẩu ổn định.
 4. Trong **Authentication → URL Configuration**, đặt Site URL theo domain triển khai và thêm redirect URL cho domain đó. Khi chạy local, thêm `http://localhost:3000` và `http://localhost:3000/**`. Production dùng domain HTTPS cụ thể, không dùng wildcard rộng.
 5. Lấy Project URL và **publishable key hoặc anon key** từ Project Settings → API. Chỉ hai giá trị công khai này được dùng trong frontend. Không dùng `service_role` hoặc secret key.
@@ -114,3 +114,7 @@ Mục **Người thuê** gồm danh sách người thuê theo trạng thái và 
 Giao diện co giãn cho điện thoại, máy tính bảng và máy tính; người thuê/hóa đơn hiển thị dạng thẻ trên màn hình nhỏ. Android mở menu Chrome → Cài đặt ứng dụng (hoặc dùng nút trong Cài đặt khi trình duyệt hỗ trợ). iPhone/iPad mở Safari → Chia sẻ → Thêm vào Màn hình chính. Triển khai bằng HTTPS để trình duyệt hỗ trợ cài PWA; không khóa hướng màn hình hoặc thao tác phóng to.
 
 App cần Internet để đăng nhập và thao tác dữ liệu Supabase. Service worker chỉ lưu trang thông báo mất mạng công khai, không lưu hóa đơn, hợp đồng, tài khoản hay API vào cache. Đây là ứng dụng web cài trên màn hình chính, chưa phải gói Android/iOS phát hành trên cửa hàng. Kiểm thử Chromium ở 320, 360, 375, 390, 430px, ngang 844px và tablet 768px; vẫn cần nghiệm thu trên Safari/iPhone và thiết bị thực tế.
+
+## Xóa người dùng khỏi không gian
+
+Chạy nội dung `supabase/migrations/202610080007_remove_workspace_member.sql` một lần sau migration 006. Quản trị viên vào Cài đặt → Quản lý người dùng → Xóa người dùng, nhập email để xác nhận. Chỉ thu hồi quyền của không gian hiện tại và hủy lời mời còn chờ tại đó; giữ tài khoản đăng nhập, quyền ở không gian khác và toàn bộ chứng từ. Không được xóa quản trị viên cuối cùng hoặc tự xóa quyền của mình.

@@ -1,4 +1,5 @@
 "use client";
+import { z } from "zod";
 import { AppInstall } from "../components/app-install";
 import { useEffect, useState, useCallback } from "react";
 import type { Session } from "@supabase/supabase-js";
@@ -221,6 +222,7 @@ function Workspace({ session }: { session: Session }) {
     [toast, setToast] = useState(""),
     [tenant, setTenant] = useState<Tenant | null>(null),
     [invoice, setInvoice] = useState<Invoice | null>(null),
+    [memberToRemove, setMemberToRemove] = useState<Membership | null>(null),
     [chartProperty, setChartProperty] = useState(""),
     [busy, setBusy] = useState(false),
     [documentTarget, setDocumentTarget] = useState<{
@@ -1525,6 +1527,7 @@ function Workspace({ session }: { session: Session }) {
                             <th>THÀNH VIÊN</th>
                             <th>EMAIL</th>
                             <th>VAI TRÒ</th>
+                            {admin && <th>THAO TÁC</th>}
                           </tr>
                         </thead>
                         <tbody>
@@ -1562,6 +1565,23 @@ function Workspace({ session }: { session: Session }) {
                                   roleNames[m.role]
                                 )}
                               </td>
+                              {admin && (
+                                <td>
+                                  <button
+                                    className="text-button danger-button"
+                                    disabled={
+                                      busy || m.user_id === session.user.id
+                                    }
+                                    aria-label={`Xóa người dùng ${m.display_name}`}
+                                    onClick={() => {
+                                      setMemberToRemove(m);
+                                      setModal("member-remove");
+                                    }}
+                                  >
+                                    Xóa người dùng
+                                  </button>
+                                </td>
+                              )}
                             </tr>
                           ))}
                         </tbody>
@@ -1660,6 +1680,53 @@ function Workspace({ session }: { session: Session }) {
             >
               <X size={20} />
             </button>
+            {modal === "member-remove" && memberToRemove && admin && (
+              <>
+                <h2>Xóa người dùng khỏi không gian</h2>
+                <p>
+                  {memberToRemove.display_name} · {memberToRemove.email}
+                </p>
+                <p>
+                  Người này sẽ mất quyền truy cập không gian hiện tại. Tài khoản
+                  đăng nhập, quyền ở không gian khác và mọi dữ liệu căn hộ,
+                  người thuê, hóa đơn vẫn được giữ nguyên.
+                </p>
+                <DataForm
+                  defaults={{ confirmation_email: "" }}
+                  fields={[
+                    {
+                      name: "confirmation_email",
+                      label: "Nhập email người dùng để xác nhận",
+                      type: "email",
+                    },
+                  ]}
+                  schema={z.object({
+                    confirmation_email: z
+                      .string()
+                      .trim()
+                      .email()
+                      .refine(
+                        (value) =>
+                          value.toLowerCase() ===
+                          memberToRemove.email.toLowerCase(),
+                        "Email xác nhận không khớp",
+                      ),
+                  })}
+                  submit="Xác nhận xóa người dùng"
+                  onSubmit={(values) =>
+                    save(
+                      () =>
+                        rpc("remove_workspace_member", {
+                          org,
+                          target_user: memberToRemove.user_id,
+                          confirmation_email: values.confirmation_email,
+                        }),
+                      "Đã xóa quyền truy cập của người dùng",
+                    )
+                  }
+                />
+              </>
+            )}
             {modal === "property-delete" && property && (
               <>
                 <h2>Xóa căn hộ {property.name}?</h2>
