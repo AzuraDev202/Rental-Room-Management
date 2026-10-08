@@ -274,7 +274,10 @@ const uid = "00000000-0000-0000-0000-000000000001",
     }
   });
   const page = await context.newPage();
-  page.on("pageerror", (e) => errors.push(e.message));
+  page.on("pageerror", (e) => {
+    errors.push(e.message);
+    console.error("Browser error", e.stack || e.message);
+  });
   await page.goto("http://localhost:3001", { waitUntil: "networkidle" });
   await page.getByLabel("Email", { exact: true }).fill("owner@test.invalid");
   await page.getByLabel("Mật khẩu", { exact: true }).fill("password123");
@@ -520,8 +523,13 @@ const uid = "00000000-0000-0000-0000-000000000001",
   await page.getByRole("button", { name: "Lập hóa đơn", exact: true }).click();
   await page.getByText("Đã lập hóa đơn", { exact: true }).waitFor();
   await page.getByRole("button", { name: "Người thuê", exact: true }).click();
-  assert.equal(await page.getByRole("button", { name: "Hóa đơn", exact: true }).count(), 0);
-  await page.getByRole("region", { name: "Hóa đơn và thu tiền", exact: true }).waitFor();
+  assert.equal(
+    await page.getByRole("button", { name: "Hóa đơn", exact: true }).count(),
+    0,
+  );
+  await page
+    .getByRole("region", { name: "Hóa đơn và thu tiền", exact: true })
+    .waitFor();
   await page.getByRole("button", { name: "Thu tiền", exact: true }).click();
   await page
     .getByLabel("Số tiền thanh toán (VNĐ)", { exact: true })
@@ -533,7 +541,12 @@ const uid = "00000000-0000-0000-0000-000000000001",
     .getByRole("heading", { name: "Ghi nhận thu tiền" })
     .waitFor({ state: "hidden" });
   await page.getByText("3.367.500 ₫", { exact: true }).waitFor();
-  assert.equal(await page.getByRole("region", { name: "Lịch sử sử dụng dịch vụ", exact: true }).count(), 0);
+  assert.equal(
+    await page
+      .getByRole("region", { name: "Lịch sử sử dụng dịch vụ", exact: true })
+      .count(),
+    0,
+  );
   await page.getByRole("button", { name: "Tổng quan", exact: true }).click();
   await page.getByText("1.000.000 ₫", { exact: true }).first().waitFor();
   await page.reload({ waitUntil: "networkidle" });
@@ -550,6 +563,76 @@ const uid = "00000000-0000-0000-0000-000000000001",
     path: "/tmp/hh-real-dashboard-mobile.png",
     fullPage: true,
   });
+  // Real account data across compact phones, Android/iPhone sizes, landscape and tablet.
+  for (const viewport of [
+    { width: 320, height: 568 },
+    { width: 360, height: 800 },
+    { width: 375, height: 667 },
+    { width: 390, height: 844 },
+    { width: 430, height: 932 },
+    { width: 844, height: 390 },
+    { width: 768, height: 1024 },
+  ]) {
+    await page.setViewportSize(viewport);
+    for (const label of ["Tổng quan", "Người thuê", "Cài đặt", "Căn hộ"]) {
+      if (
+        await page
+          .getByRole("button", { name: "Mở menu", exact: true })
+          .isVisible()
+      ) {
+        await page
+          .getByRole("button", { name: "Mở menu", exact: true })
+          .click();
+        await page.locator(".sidebar.open").waitFor();
+        await page.waitForTimeout(250);
+      }
+      await page
+        .getByRole("button", {
+          name: label === "Căn hộ" ? /^Căn hộ/ : label,
+          exact: true,
+        })
+        .click();
+      await page.waitForTimeout(250);
+      assert.equal(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth > innerWidth,
+        ),
+        false,
+        `${label} overflow at ${viewport.width}`,
+      );
+    }
+    await page
+      .getByRole("button", { name: "Thêm căn hộ", exact: true })
+      .click();
+    await page.getByRole("dialog").waitFor();
+    assert.equal(
+      await page.evaluate(() => {
+        const r = document
+          .querySelector('[role="dialog"]')
+          .getBoundingClientRect();
+        return (
+          r.left >= 0 &&
+          r.right <= innerWidth &&
+          r.top >= 0 &&
+          r.bottom <= innerHeight
+        );
+      }),
+      true,
+      `dialog bounds at ${viewport.width}`,
+    );
+    const input = page.getByRole("dialog").locator("input").first();
+    if (viewport.width <= 700)
+      assert.ok(
+        Number.parseFloat(
+          await input.evaluate((el) => getComputedStyle(el).fontSize),
+        ) >= 16,
+      );
+    await page.getByRole("button", { name: "Đóng", exact: true }).click();
+  }
+  await page.setViewportSize({ width: 390, height: 844 });
+  console.log(
+    "PASS: mobile layouts at 320/360/375/390/430px, landscape 844px, tablet 768px; forms, navigation, invoices and settings",
+  );
   await page.getByRole("button", { name: "Mở menu" }).click();
   await page.getByRole("button", { name: /Test Owner Đăng xuất/ }).click();
   await page.getByLabel("Email", { exact: true }).fill("viewer@test.invalid");
@@ -937,7 +1020,12 @@ const uid = "00000000-0000-0000-0000-000000000001",
   );
   await page.getByRole("button", { name: "Mở menu" }).click();
   await page.getByRole("button", { name: "Người thuê", exact: true }).click();
-  assert.equal(await page.getByRole("region", { name: "Lịch sử sử dụng dịch vụ", exact: true }).count(), 0);
+  assert.equal(
+    await page
+      .getByRole("region", { name: "Lịch sử sử dụng dịch vụ", exact: true })
+      .count(),
+    0,
+  );
   assert.equal(await page.getByLabel("Ảnh điện", { exact: true }).count(), 0);
   await page.setViewportSize({ width: 390, height: 844 });
   assert.equal(
@@ -1105,7 +1193,12 @@ const uid = "00000000-0000-0000-0000-000000000001",
     .fill("3");
   await page.getByRole("button", { name: "Lập hóa đơn", exact: true }).click();
   await page.getByText("Đã lập hóa đơn", { exact: true }).waitFor();
-  assert.equal(await page.getByRole("region", { name: "Lịch sử sử dụng dịch vụ", exact: true }).count(), 0);
+  assert.equal(
+    await page
+      .getByRole("region", { name: "Lịch sử sử dụng dịch vụ", exact: true })
+      .count(),
+    0,
+  );
   const newArrivalBill = (
     await db.query(`select * from invoices where billing_cycle_id=$1`, [
       newArrival.billing_cycle_id,

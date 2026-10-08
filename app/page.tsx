@@ -1,4 +1,5 @@
 "use client";
+import { AppInstall } from "../components/app-install";
 import { useEffect, useState, useCallback } from "react";
 import type { Session } from "@supabase/supabase-js";
 import {
@@ -249,6 +250,22 @@ function Workspace({ session }: { session: Session }) {
     const timer = setTimeout(() => setToast(""), 4500);
     return () => clearTimeout(timer);
   }, [toast]);
+  useEffect(() => {
+    if (!modal && !mobile) return;
+    const before = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const escape = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && !busy) {
+        setModal("");
+        setMobile(false);
+      }
+    };
+    window.addEventListener("keydown", escape);
+    return () => {
+      document.body.style.overflow = before;
+      window.removeEventListener("keydown", escape);
+    };
+  }, [modal, mobile, busy]);
   const refreshMemberships = useCallback(async () => {
     const { data: result, error } = await supabase!
       .from("memberships")
@@ -645,7 +662,7 @@ function Workspace({ session }: { session: Session }) {
             <button
               className="mobile-menu"
               aria-label="Mở menu"
-              onClick={() => setMobile(!mobile)}
+              onClick={() => setMobile(true)}
             >
               <Menu size={22} />
             </button>
@@ -1418,7 +1435,10 @@ function Workspace({ session }: { session: Session }) {
               )}
               {page === "tenants" && (
                 <>
-                  <section className="panel tenant-invoices" aria-label="Hóa đơn và thu tiền">
+                  <section
+                    className="panel tenant-invoices"
+                    aria-label="Hóa đơn và thu tiền"
+                  >
                     <div className="panel-heading">
                       <div>
                         <h2>Hóa đơn kỳ {period}</h2>
@@ -1455,6 +1475,7 @@ function Workspace({ session }: { session: Session }) {
               )}
               {page === "settings" && (
                 <>
+                  <AppInstall />
                   {currentProperties.map((p) => (
                     <PropertyRates
                       key={p.id}
@@ -1614,9 +1635,19 @@ function Workspace({ session }: { session: Session }) {
           {toast}
         </div>
       )}
+      {mobile && (
+        <button
+          className="menu-backdrop"
+          aria-label="Đóng menu"
+          onClick={() => setMobile(false)}
+        />
+      )}
       {modal && (
         <div className="overlay">
           <section
+            role="dialog"
+            aria-modal="true"
+            aria-label="Thông tin và thao tác"
             className={
               "modal " + (modal === "property-delete" ? "delete-modal" : "")
             }
@@ -2259,7 +2290,7 @@ function Invoices({
 }) {
   return invoices.length ? (
     <div className="table-wrap">
-      <table>
+      <table className="mobile-cards">
         <thead>
           <tr>
             <th>PHÒNG / CĂN HỘ</th>
@@ -2276,7 +2307,7 @@ function Invoices({
               remaining = balance(i, data.payments);
             return (
               <tr key={i.id}>
-                <td>
+                <td data-label="Phòng / căn hộ">
                   <button className="text-button" onClick={() => detail(i)}>
                     {isCurrentDocument(data, "invoice", i.id) ? (
                       <>
@@ -2308,10 +2339,10 @@ function Invoices({
                     </small>
                   )}
                 </td>
-                <td>{money(i.total)}</td>
-                <td>{money(remaining)}</td>
-                <td>{i.due_date}</td>
-                <td>
+                <td data-label="Tổng hóa đơn">{money(i.total)}</td>
+                <td data-label="Còn phải thu">{money(remaining)}</td>
+                <td data-label="Hạn thanh toán">{i.due_date}</td>
+                <td data-label="Trạng thái">
                   <span className={"status " + (remaining ? "pending" : "")}>
                     {remaining
                       ? i.due_date < localDay()
@@ -2320,7 +2351,7 @@ function Invoices({
                       : "Đã thu đủ"}
                   </span>
                 </td>
-                <td>
+                <td data-label="Thao tác">
                   {canWrite && remaining > 0 && (
                     <button className="text-button" onClick={() => pay(i)}>
                       Thu tiền

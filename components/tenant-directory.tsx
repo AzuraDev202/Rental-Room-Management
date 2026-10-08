@@ -186,7 +186,7 @@ export function TenantDirectory({
                 <span>{tenants.length} người</span>
               </div>
               <div className="table-wrap">
-                <table>
+                <table className="mobile-cards">
                   <thead>
                     <tr>
                       <th>NGƯỜI THUÊ</th>
@@ -199,16 +199,16 @@ export function TenantDirectory({
                   <tbody>
                     {tenants.map((t) => (
                       <tr key={t.id}>
-                        <td>
+                        <td data-label="Người thuê">
                           <b>{t.full_name}</b>
                         </td>
-                        <td>{t.phone}</td>
-                        <td>
+                        <td data-label="Điện thoại">{t.phone}</td>
+                        <td data-label="Ngày vào ở">
                           {new Date(t.move_in).toLocaleDateString("vi-VN", {
                             timeZone: "Asia/Ho_Chi_Minh",
                           })}
                         </td>
-                        <td>
+                        <td data-label="Trạng thái">
                           <span
                             className={
                               "status " +
@@ -220,7 +220,7 @@ export function TenantDirectory({
                             {tenantStatus(t, day)}
                           </span>
                         </td>
-                        <td>
+                        <td data-label="Thao tác">
                           <button
                             className="text-button"
                             onClick={() => detail(t)}

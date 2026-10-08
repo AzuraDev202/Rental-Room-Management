@@ -8,7 +8,8 @@
     "start": "next start --hostname 0.0.0.0",
     "test": "tsx --test tests/*.test.ts",
     "test:ui": "node tests/ui.integration.cjs",
-    "format": "prettier --write app components lib tests docs README.md package.json tsconfig.json"
+    "format": "prettier --write app components lib tests docs README.md package.json tsconfig.json",
+    "test:pwa": "node tests/pwa.integration.cjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.9.1",

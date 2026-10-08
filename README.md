@@ -108,3 +108,9 @@ Chạy **nội dung** [202610080006_room_move_in_readings.sql](supabase/migratio
 ## Hóa đơn trong Người thuê
 
 Mục **Người thuê** gồm danh sách người thuê theo trạng thái và bảng **Hóa đơn kỳ** phía dưới. Chọn tháng ở **Kỳ xem**, mở chi tiết, thu tiền hoặc xuất CSV tại đây. Hồ sơ từng người vẫn hiển thị hóa đơn/thanh toán liên quan, gồm người đã chuyển đi. **Xem hóa đơn** trên Tổng quan cũng dẫn đến Người thuê; thanh bên không có mục Hóa đơn riêng. Việc lập hóa đơn vẫn ở chi tiết phòng.
+
+## Sử dụng như app trên điện thoại
+
+Giao diện co giãn cho điện thoại, máy tính bảng và máy tính; người thuê/hóa đơn hiển thị dạng thẻ trên màn hình nhỏ. Android mở menu Chrome → Cài đặt ứng dụng (hoặc dùng nút trong Cài đặt khi trình duyệt hỗ trợ). iPhone/iPad mở Safari → Chia sẻ → Thêm vào Màn hình chính. Triển khai bằng HTTPS để trình duyệt hỗ trợ cài PWA; không khóa hướng màn hình hoặc thao tác phóng to.
+
+App cần Internet để đăng nhập và thao tác dữ liệu Supabase. Service worker chỉ lưu trang thông báo mất mạng công khai, không lưu hóa đơn, hợp đồng, tài khoản hay API vào cache. Đây là ứng dụng web cài trên màn hình chính, chưa phải gói Android/iOS phát hành trên cửa hàng. Kiểm thử Chromium ở 320, 360, 375, 390, 430px, ngang 844px và tablet 768px; vẫn cần nghiệm thu trên Safari/iPhone và thiết bị thực tế.

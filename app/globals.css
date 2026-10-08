@@ -2211,3 +2211,254 @@ select:focus {
 .tenant-invoices {
   margin-top: 24px;
 }
+/* Phone layouts, including narrow screens, landscape and display cutouts. */
+html {
+  -webkit-text-size-adjust: 100%;
+}
+.app,
+.auth-page {
+  min-height: 100svh;
+}
+.app-install {
+  padding: 24px;
+  margin-bottom: 24px;
+}
+.app-install p {
+  margin-top: 12px;
+  line-height: 1.7;
+}
+.app-install button {
+  margin-top: 16px;
+}
+.menu-backdrop {
+  display: none;
+}
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 3px solid #84b8a5;
+  outline-offset: 2px;
+}
+@media (max-width: 700px) {
+  body {
+    font-size: 14px;
+  }
+  header {
+    padding-left: max(12px, env(safe-area-inset-left));
+    padding-right: max(12px, env(safe-area-inset-right));
+  }
+  main {
+    padding: 20px max(12px, env(safe-area-inset-right))
+      max(20px, env(safe-area-inset-bottom))
+      max(12px, env(safe-area-inset-left));
+  }
+  button,
+  .primary,
+  .secondary,
+  .text-button,
+  .close {
+    min-height: 44px;
+  }
+  .close,
+  .mobile-menu {
+    min-width: 44px;
+  }
+  input,
+  select,
+  textarea,
+  .data-form input,
+  .data-form select {
+    font-size: 16px;
+    min-height: 44px;
+  }
+  input[type="checkbox"],
+  input[type="radio"] {
+    min-height: auto;
+  }
+  .sidebar {
+    padding-top: max(24px, env(safe-area-inset-top));
+    padding-bottom: env(safe-area-inset-bottom);
+    max-height: 100dvh;
+    overflow-y: auto;
+  }
+  .sidebar.open {
+    width: min(300px, calc(100vw - 48px));
+  }
+  .menu-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 19;
+    background: #162e2866;
+  }
+  .overlay {
+    padding: max(8px, env(safe-area-inset-top))
+      max(8px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom))
+      max(8px, env(safe-area-inset-left));
+  }
+  .modal {
+    padding: 24px 18px;
+    max-height: calc(100dvh - 24px);
+    overscroll-behavior: contain;
+  }
+  .modal h2 {
+    padding-right: 36px;
+  }
+  .modal .close {
+    top: 8px;
+    right: 8px;
+  }
+  .detail-list > div {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .detail-list b {
+    max-width: 100%;
+  }
+  .heading-actions,
+  .section-heading,
+  .panel-heading,
+  .tenant-property-heading,
+  .tenant-room-heading,
+  .team-row,
+  .arrival-reading {
+    flex-wrap: wrap;
+  }
+  .heading-actions > *,
+  .period,
+  .search {
+    max-width: 100%;
+  }
+  .tenant-filters {
+    grid-template-columns: 1fr;
+    padding: 18px;
+  }
+  .tenant-property {
+    padding: 18px 12px 0;
+  }
+  .tenant-room-heading > span {
+    margin-left: 0;
+  }
+  .tenant-room-heading h4,
+  .tenant-property-heading h3 {
+    overflow-wrap: anywhere;
+  }
+  .panel,
+  .stat,
+  .room-card,
+  .form-grid > *,
+  .team-row > * {
+    min-width: 0;
+  }
+  .panel-heading p,
+  .form-hint,
+  .breadcrumb,
+  .contract,
+  .bill-total {
+    overflow-wrap: anywhere;
+  }
+  .occupancy {
+    display: block;
+  }
+  .text-button {
+    font-size: 13px;
+  }
+  .room-card p,
+  .room-card .status,
+  .room-foot,
+  .property-foot {
+    font-size: 12px;
+  }
+  .table-wrap {
+    max-width: 100%;
+    overscroll-behavior-x: contain;
+  }
+  .mobile-cards,
+  .mobile-cards tbody {
+    display: block;
+    white-space: normal;
+  }
+  .mobile-cards thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+  .mobile-cards tr {
+    display: block;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  .mobile-cards td {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px 12px;
+    padding: 8px 0;
+    border: 0;
+    overflow-wrap: anywhere;
+  }
+  .mobile-cards td::before {
+    content: attr(data-label);
+    color: #60736a;
+    font-size: 12px;
+  }
+  .mobile-cards td:first-child {
+    display: block;
+  }
+  .mobile-cards td:first-child::before {
+    display: block;
+    margin-bottom: 4px;
+  }
+  .mobile-cards td:first-child button {
+    max-width: 100%;
+    text-align: left;
+    justify-content: flex-start;
+  }
+  .mobile-cards small {
+    display: block;
+  }
+  .toast {
+    bottom: max(16px, env(safe-area-inset-bottom));
+  }
+}
+@media (max-width: 380px) {
+  .stats,
+  .rooms {
+    grid-template-columns: 1fr;
+  }
+  .header-right {
+    gap: 4px;
+  }
+  .breadcrumb {
+    font-size: 12px;
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+  .period {
+    flex-wrap: wrap;
+  }
+  .property-numbers {
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  .bill-total {
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+}
+/* Keep every navigation item reachable in short landscape viewports. */
+.sidebar {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.sidebar > * {
+  flex-shrink: 0;
+}
+header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
