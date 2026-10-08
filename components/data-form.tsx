@@ -2,7 +2,7 @@
 import { useForm, type Resolver } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import type { z } from "zod";
-import { useState } from "react";
+import { useState, useId } from "react";
 export type Field = {
   name: string;
   label: string;
@@ -29,6 +29,7 @@ export function DataForm({
   onSubmit: (values: Record<string, unknown>) => Promise<void>;
   children?: React.ReactNode;
 }) {
+  const formId = useId();
   const {
     register,
     handleSubmit,
@@ -56,13 +57,13 @@ export function DataForm({
         <div className="form-grid">
           {fields.map((f) => (
             <div className="form-field" key={f.name}>
-              <label htmlFor={"field-" + f.name}>{f.label}</label>
+              <label htmlFor={formId + "-field-" + f.name}>{f.label}</label>
               {f.options ? (
                 <select
-                  id={"field-" + f.name}
+                  id={formId + "-field-" + f.name}
                   aria-invalid={!!errors[f.name]}
                   aria-describedby={
-                    errors[f.name] ? "error-" + f.name : undefined
+                    errors[f.name] ? formId + "-error-" + f.name : undefined
                   }
                   {...register(f.name)}
                 >
@@ -75,7 +76,7 @@ export function DataForm({
                 </select>
               ) : (
                 <input
-                  id={"field-" + f.name}
+                  id={formId + "-field-" + f.name}
                   type={f.type || "text"}
                   min={f.min}
                   max={f.max}
@@ -84,14 +85,14 @@ export function DataForm({
                   readOnly={f.readOnly}
                   aria-invalid={!!errors[f.name]}
                   aria-describedby={
-                    errors[f.name] ? "error-" + f.name : undefined
+                    errors[f.name] ? formId + "-error-" + f.name : undefined
                   }
                   {...register(f.name)}
                 />
               )}{" "}
               {errors[f.name] && (
                 <span
-                  id={"error-" + f.name}
+                  id={formId + "-error-" + f.name}
                   className="field-error"
                   role="alert"
                 >

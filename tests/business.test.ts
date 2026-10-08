@@ -12,6 +12,7 @@ import type { Invoice, Payment } from "../lib/types";
 test("bill calculation and invalid readings", () => {
   const rates = {
     organization_id: "org",
+    property_id: "property",
     electricity: 3500,
     water: 20000,
     trash: 30000,

@@ -10,6 +10,7 @@ const users = {
   outsider: "00000000-0000-0000-0000-000000000004",
   unverified: "00000000-0000-0000-0000-000000000005",
 };
+let foreignProperty: string;
 let org: string,
   otherOrg: string,
   property: string,
@@ -47,6 +48,12 @@ test("migration, authorization and billing integration", async (t) => {
       "utf8",
     ).replace("create extension if not exists pgcrypto;", ""),
   );
+  await db.exec(
+    readFileSync(
+      "supabase/migrations/202610080002_property_service_rates.sql",
+      "utf8",
+    ),
+  );
   await t.test("fresh database contains no example business data", async () => {
     for (const table of [
       "organizations",
@@ -56,6 +63,7 @@ test("migration, authorization and billing integration", async (t) => {
       "contracts",
       "invoices",
       "payments",
+      "property_service_rates",
     ])
       assert.equal(
         (
@@ -134,6 +142,7 @@ test("migration, authorization and billing integration", async (t) => {
         [otherOrg],
       )
     )[0].id;
+    foreignProperty = otherProperty;
     otherRoom = (
       await query<{ id: string }>(`select id from rooms where property_id=$1`, [
         otherProperty,
@@ -228,8 +237,8 @@ test("migration, authorization and billing integration", async (t) => {
         room,
       ]);
       await db.query(
-        `update service_rates set electricity=3500,water=20000,trash=30000,wifi=70000,laundry=50000 where organization_id=$1`,
-        [org],
+        `insert into property_service_rates(property_id,organization_id,electricity,water,trash,wifi,laundry) values($1,$2,3500,20000,30000,70000,50000)`,
+        [property, org],
       );
       await as(users.owner);
       await reject(
@@ -266,8 +275,8 @@ test("migration, authorization and billing integration", async (t) => {
         /permission denied/,
       );
       await db.query(
-        `update service_rates set electricity=4000 where organization_id=$1`,
-        [org],
+        `update property_service_rates set electricity=4000 where property_id=$1`,
+        [property],
       );
       assert.equal(
         Number(
@@ -300,6 +309,92 @@ test("migration, authorization and billing integration", async (t) => {
         [org, room],
         /tương lai/,
       );
+    },
+  );
+  await t.test(
+    "rates are property-specific, scoped and required for invoices",
+    async () => {
+      await as(users.manager);
+      const otherProperty = (
+        await query<{ id: string }>(
+          `select public.create_property($1,'Building C','Address C',0,1) as id`,
+          [org],
+        )
+      )[0].id;
+      const newRoom = (
+        await query<{ id: string }>(
+          `select id from rooms where property_id=$1`,
+          [otherProperty],
+        )
+      )[0].id;
+      await reject(
+        `select public.create_invoice($1,$2,'2020-01-01','2020-01-05',0,10,0,1)`,
+        [org, newRoom],
+        /Chưa thiết lập đơn giá/,
+      );
+      await db.query(
+        `insert into property_service_rates(property_id,organization_id,electricity,water,trash,wifi,laundry) values($1,$2,1000,5000,0,0,0)`,
+        [otherProperty, org],
+      );
+      const id = (
+        await query<{ id: string }>(
+          `select public.create_invoice($1,$2,'2020-01-01','2020-01-05',0,10,0,1) as id`,
+          [org, newRoom],
+        )
+      )[0].id;
+      assert.equal(
+        Number(
+          (
+            await query<{ total: number }>(
+              `select total from invoices where id=$1`,
+              [id],
+            )
+          )[0].total,
+        ),
+        15000,
+      );
+      assert.equal(
+        Number(
+          (
+            await query<{ electricity: number }>(
+              `select electricity from property_service_rates where property_id=$1`,
+              [property],
+            )
+          )[0].electricity,
+        ),
+        4000,
+      );
+      await reject(
+        `insert into property_service_rates(property_id,organization_id,electricity,water,trash,wifi,laundry) values($1,$2,1,1,0,0,0)`,
+        [foreignProperty, org],
+        /foreign key/,
+      );
+      await as(users.viewer);
+      assert.equal(
+        (
+          await query(
+            `update property_service_rates set electricity=1 where property_id=$1 returning property_id`,
+            [property],
+          )
+        ).length,
+        0,
+      );
+      await reject(
+        `insert into property_service_rates(property_id,organization_id,electricity,water,trash,wifi,laundry) values($1,$2,1,1,0,0,0)`,
+        [otherRoom, org],
+        /row-level security/,
+      );
+      await as(users.outsider);
+      assert.equal(
+        (
+          await query(
+            `select * from property_service_rates where organization_id=$1`,
+            [org],
+          )
+        ).length,
+        0,
+      );
+      await as(users.manager);
     },
   );
   await t.test(

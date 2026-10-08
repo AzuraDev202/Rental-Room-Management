@@ -5,7 +5,7 @@
 ## 1. Tạo và cấu hình Supabase
 
 1. Tạo dự án tại https://supabase.com/dashboard. Chọn vùng gần Việt Nam và lưu mật khẩu database trong trình quản lý mật khẩu.
-2. Mở **SQL Editor**, chạy toàn bộ `supabase/migrations/202610080001_hh_home.sql` một lần trên dự án mới. Migration tạo bảng, RPC, RLS và bucket `contracts` riêng tư; không tạo dữ liệu căn hộ/người thuê/hóa đơn.
+2. Mở **SQL Editor**, chạy lần lượt `supabase/migrations/202610080001_hh_home.sql` rồi `supabase/migrations/202610080002_property_service_rates.sql`, mỗi file một lần trên dự án mới. Migration tạo bảng, RPC, RLS và bucket `contracts` riêng tư; không tạo dữ liệu căn hộ/người thuê/hóa đơn.
 3. Trong **Authentication → Providers → Email**, bật đăng ký email/password và **Confirm email**. Thiết lập mật khẩu tối thiểu 8 ký tự. Với môi trường production, cấu hình SMTP để gửi email xác nhận và đặt lại mật khẩu ổn định.
 4. Trong **Authentication → URL Configuration**, đặt Site URL theo domain triển khai và thêm redirect URL cho domain đó. Khi chạy local, thêm `http://localhost:3000` và `http://localhost:3000/**`. Production dùng domain HTTPS cụ thể, không dùng wildcard rộng.
 5. Lấy Project URL và **publishable key hoặc anon key** từ Project Settings → API. Chỉ hai giá trị công khai này được dùng trong frontend. Không dùng `service_role` hoặc secret key.
@@ -42,7 +42,7 @@ npm start
 1. Đăng ký, xác nhận email, đăng nhập.
 2. Tạo không gian quản lý đầu tiên; người tạo nhận quyền **Quản trị viên**. Nếu được cấp quyền vào không gian có sẵn, chọn **Nhận lời mời** thay vì tạo không gian mới.
 3. Vào **Căn hộ → Thêm căn hộ**, nhập tên, địa chỉ, số phòng và giá thuê căn hộ/tháng. Phòng được tạo trong cùng giao dịch và có giá thuê ban đầu 0; mở từng phòng để đặt tên và giá thuê thực tế.
-4. Vào **Cài đặt** để nhập đơn giá điện/nước và phí rác, wifi, máy giặt. Các phí này hiện tính theo phòng/tháng. Không áp dụng giá dịch vụ giả định.
+4. Vào **Cài đặt** để nhập đơn giá điện/nước và phí rác, wifi, máy giặt **riêng cho từng căn hộ**. Phần đơn giá không hiển thị khi chưa có căn hộ. Các phí này hiện tính theo phòng/tháng. Căn hộ mới chưa có đơn giá cho đến khi được lưu; cần thiết lập trước khi lập hóa đơn.
 5. Thêm người thuê; khai báo họ tên, giới tính, ngày sinh, CCCD, điện thoại, email (tùy chọn), ngày vào ở. Sửa hồ sơ hoặc ghi nhận chuyển đi; giữ lại hồ sơ đã chuyển đi.
 6. Tải hợp đồng PDF/JPG/PNG tối đa 10 MB, nhập ngày hiệu lực. Tệp thuộc đúng không gian và phòng; nút Xem tạo URL ký có hiệu lực 60 giây, không phải liên kết công khai.
 7. Mở phòng để lập hóa đơn. Lần đầu nhập chỉ số cũ; các kỳ tiếp theo lấy chỉ số mới của hóa đơn gần nhất. Hóa đơn chỉ lập theo thứ tự kỳ, không trùng kỳ và không lập cho tháng tương lai. Máy chủ chốt giá phòng, đơn giá, phí và tính tổng; lịch sử không đổi khi chỉnh đơn giá.
@@ -70,3 +70,9 @@ Xem [thiết kế database](docs/database.md). Không chạy script xóa/reset d
 - Kiểm tra email xác nhận/reset, đăng nhập, tài khoản khác không gian, viewer, upload và signed URL trên Supabase thật trước khi vận hành.
 - Hợp đồng tải lên được bù trừ bằng xóa tệp nếu lưu metadata thất bại. Nếu mất kết nối hoặc dọn tệp thất bại, cần đối chiếu Storage với bảng `contracts` để dọn tệp mồ côi.
 - Ứng dụng dùng client Supabase với RLS; không có service-role key hoặc tài khoản bypass phân quyền trong frontend. Không lưu dữ liệu nghiệp vụ vào localStorage; Supabase SDK lưu phiên đăng nhập để khôi phục phiên trên trình duyệt.
+
+## Cập nhật database đã chạy migration đầu tiên
+
+Nếu bạn đã chạy `202610080001_hh_home.sql` trước đây, **chỉ chạy nội dung file mới** [202610080002_property_service_rates.sql](supabase/migrations/202610080002_property_service_rates.sql) trong SQL Editor. Không chạy lại file đầu tiên.
+
+Migration mới tạo đơn giá riêng cho từng căn hộ, sao chép bộ đơn giá cũ vào các căn hộ đang có và giữ nguyên hóa đơn/thanh toán. Bảng đơn giá cũ được đổi tên thành `legacy_organization_service_rates` để lưu bản gốc và thu hồi quyền truy cập của ứng dụng. Workspace hoặc căn hộ mới không tự tạo bộ phí mặc định. Sau đó cập nhật mã ứng dụng và khởi động lại.

@@ -34,6 +34,7 @@ export type Tenant = {
   move_out: string | null;
 };
 export type Rates = {
+  property_id: string;
   organization_id: string;
   electricity: number;
   water: number;
@@ -83,7 +84,7 @@ export type Data = {
   properties: Property[];
   rooms: Room[];
   tenants: Tenant[];
-  rates: Rates | null;
+  rates: Rates[];
   invoices: Invoice[];
   payments: Payment[];
   contracts: Contract[];
@@ -94,7 +95,7 @@ export const emptyData: Data = {
   properties: [],
   rooms: [],
   tenants: [],
-  rates: null,
+  rates: [],
   invoices: [],
   payments: [],
   contracts: [],

@@ -2031,3 +2031,6 @@ select:focus {
 .form-field > label {
   display: block;
 }
+.property-rates + .property-rates {
+  margin-top: 22px;
+}

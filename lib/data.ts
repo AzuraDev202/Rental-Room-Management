@@ -26,8 +26,8 @@ export async function rows(table: string, org: string) {
       .order(
         table === "memberships"
           ? "user_id"
-          : table === "service_rates"
-            ? "organization_id"
+          : table === "property_service_rates"
+            ? "property_id"
             : "id",
       )
       .range(start, start + 499);
@@ -42,7 +42,7 @@ export async function loadData(org: string, admin: boolean): Promise<Data> {
     "properties",
     "rooms",
     "tenants",
-    "service_rates",
+    "property_service_rates",
     "invoices",
     "payments",
     "contracts",
@@ -54,7 +54,7 @@ export async function loadData(org: string, admin: boolean): Promise<Data> {
     properties: result[0],
     rooms: result[1],
     tenants: result[2],
-    rates: result[3][0] || null,
+    rates: result[3],
     invoices: result[4],
     payments: result[5],
     contracts: result[6],

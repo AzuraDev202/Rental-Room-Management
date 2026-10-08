@@ -20,6 +20,12 @@ const uid = "00000000-0000-0000-0000-000000000001",
       )
       .replace("create extension if not exists pgcrypto;", ""),
   );
+  await db.exec(
+    fs.readFileSync(
+      root + "/supabase/migrations/202610080002_property_service_rates.sql",
+      "utf8",
+    ),
+  );
   const browser = await chromium.launch({
     headless: true,
     ...(process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH
@@ -157,7 +163,7 @@ const uid = "00000000-0000-0000-0000-000000000001",
           "properties",
           "rooms",
           "tenants",
-          "service_rates",
+          "property_service_rates",
           "invoices",
           "payments",
           "contracts",
@@ -200,7 +206,9 @@ const uid = "00000000-0000-0000-0000-000000000001",
           ")";
         if (req.headers().prefer?.includes("resolution=merge-duplicates"))
           sql +=
-            " on conflict(organization_id) do update set " +
+            " on conflict(" +
+            (url.searchParams.get("on_conflict") || "organization_id") +
+            ") do update set " +
             keys
               .filter((k) => k !== "organization_id")
               .map((k) => k + "=excluded." + k)
@@ -256,6 +264,12 @@ const uid = "00000000-0000-0000-0000-000000000001",
       .count(),
     0,
   );
+  await page.getByRole("button", { name: "Cài đặt", exact: true }).click();
+  assert.equal(
+    await page.getByRole("heading", { name: /Đơn giá dịch vụ/ }).count(),
+    0,
+  );
+  await page.getByRole("button", { name: "Tổng quan", exact: true }).click();
   await page.screenshot({
     path: "/tmp/hh-empty-dashboard.png",
     fullPage: true,
@@ -301,7 +315,7 @@ const uid = "00000000-0000-0000-0000-000000000001",
   ])
     await page.getByLabel(label, { exact: true }).fill(v);
   await page.getByRole("button", { name: "Lưu đơn giá", exact: true }).click();
-  await page.getByText("Đã lưu đơn giá", { exact: true }).waitFor();
+  await page.getByText("Đã lưu đơn giá cho Test Building", { exact: true }).waitFor();
   await page.getByRole("button", { name: "Cấp quyền", exact: true }).click();
   await page.getByLabel("Email", { exact: true }).fill("viewer@test.invalid");
   await page.getByRole("button", { name: "Lưu lời mời" }).click();

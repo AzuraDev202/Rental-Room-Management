@@ -71,6 +71,7 @@ import {
   type Invoice,
   type Contract,
   type Role,
+  type Rates,
 } from "../lib/types";
 const roleNames: Record<Role, string> = {
   admin: "Quản trị viên",
@@ -362,6 +363,9 @@ function Workspace({ session }: { session: Session }) {
     revenueSeries(period.slice(0, 4), data.invoices, data.payments, roomIds)[
       Number(period.slice(5)) - 1
     ]?.revenue || 0;
+  const roomRates = room
+    ? data.rates.find((r) => r.property_id === room.property_id)
+    : undefined;
   const previous = room
     ? data.invoices
         .filter((i) => i.room_id === room.id)
@@ -1092,13 +1096,13 @@ function Workspace({ session }: { session: Session }) {
                       </div>
                       <ReceiptText size={19} />
                     </div>
-                    {canWrite && data.rates ? (
+                    {canWrite && roomRates ? (
                       <InvoiceForm
                         key={room.id + period + (previous?.id || "")}
                         period={period}
                         previous={previous || null}
                         room={room}
-                        rates={data.rates}
+                        rates={roomRates}
                         onSubmit={(v) =>
                           save(
                             () =>
@@ -1121,7 +1125,7 @@ function Workspace({ session }: { session: Session }) {
                         title={canWrite ? "Chưa có đơn giá" : "Quyền chỉ xem"}
                         detail={
                           canWrite
-                            ? "Thiết lập đơn giá trong Cài đặt trước khi lập hóa đơn."
+                            ? "Thiết lập đơn giá của căn hộ này trong Cài đặt trước khi lập hóa đơn."
                             : "Bạn có thể xem hóa đơn tại trang Hóa đơn."
                         }
                       />
@@ -1263,65 +1267,30 @@ function Workspace({ session }: { session: Session }) {
               )}
               {page === "settings" && (
                 <>
-                  <section className="panel settings">
-                    <div className="panel-heading">
-                      <div>
-                        <h2>Đơn giá dịch vụ</h2>
-                        <p>
-                          Các khoản rác, wifi, máy giặt tính theo phòng mỗi
-                          tháng. Hóa đơn cũ giữ nguyên đơn giá.
-                        </p>
-                      </div>
-                    </div>
-                    {canWrite ? (
-                      <DataForm
-                        key={JSON.stringify(data.rates)}
-                        schema={ratesSchema}
-                        fields={rateFields}
-                        defaults={
-                          data.rates
-                            ? { ...data.rates }
-                            : {
-                                electricity: "",
-                                water: "",
-                                trash: "",
-                                wifi: "",
-                                laundry: "",
-                              }
-                        }
-                        submit="Lưu đơn giá"
-                        onSubmit={(v) =>
-                          save(async () => {
-                            const { error } = await supabase!
-                              .from("service_rates")
-                              .upsert({
+                  {data.properties.map((p) => (
+                    <PropertyRates
+                      key={p.id}
+                      property={p}
+                      rates={data.rates.find((r) => r.property_id === p.id)}
+                      canWrite={canWrite}
+                      onSave={(v) =>
+                        save(async () => {
+                          const { error } = await supabase!
+                            .from("property_service_rates")
+                            .upsert(
+                              {
                                 ...v,
+                                property_id: p.id,
                                 organization_id: org,
                                 updated_at: new Date().toISOString(),
-                              });
-                            if (error) throw databaseError(error);
-                          }, "Đã lưu đơn giá")
-                        }
-                      />
-                    ) : (
-                      <div className="detail-list rate-list">
-                        {rateFields.map((f) => (
-                          <div key={f.name}>
-                            <span>{f.label}</span>
-                            <b>
-                              {money(
-                                Number(
-                                  data.rates?.[
-                                    f.name as keyof typeof data.rates
-                                  ] || 0,
-                                ),
-                              )}
-                            </b>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </section>
+                              },
+                              { onConflict: "property_id" },
+                            );
+                          if (error) throw databaseError(error);
+                        }, "Đã lưu đơn giá cho " + p.name)
+                      }
+                    />
+                  ))}
                   <section className="panel team-panel">
                     <div className="panel-heading">
                       <div>
@@ -1900,7 +1869,7 @@ function InvoiceForm({
   period: string;
   previous: Invoice | null;
   room: Room;
-  rates: NonNullable<Data["rates"]>;
+  rates: Rates;
   onSubmit: (v: Record<string, unknown>) => Promise<void>;
 }) {
   const fields: Field[] = [
@@ -2139,4 +2108,61 @@ function exportInvoices(invoices: Invoice[], data: Data) {
   a.download = "HH-HOME-hoa-don.csv";
   a.click();
   URL.revokeObjectURL(url);
+}
+
+function PropertyRates({
+  property,
+  rates,
+  canWrite,
+  onSave,
+}: {
+  property: Property;
+  rates: Rates | undefined;
+  canWrite: boolean;
+  onSave: (v: Record<string, unknown>) => Promise<void>;
+}) {
+  return (
+    <section
+      className="panel settings property-rates"
+      aria-label={"Đơn giá dịch vụ · " + property.name}
+    >
+      <div className="panel-heading">
+        <div>
+          <h2>Đơn giá dịch vụ · {property.name}</h2>
+          <p>
+            {property.address} · Phí rác, wifi, máy giặt tính theo phòng/tháng.
+            Hóa đơn cũ giữ nguyên đơn giá.
+          </p>
+        </div>
+      </div>
+      {canWrite ? (
+        <DataForm
+          key={JSON.stringify(rates)}
+          schema={ratesSchema}
+          fields={rateFields}
+          defaults={
+            rates
+              ? { ...rates }
+              : { electricity: "", water: "", trash: "", wifi: "", laundry: "" }
+          }
+          submit="Lưu đơn giá"
+          onSubmit={onSave}
+        />
+      ) : rates ? (
+        <div className="detail-list rate-list">
+          {rateFields.map((f) => (
+            <div key={f.name}>
+              <span>{f.label}</span>
+              <b>{money(Number(rates[f.name as keyof Rates]))}</b>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <Empty
+          title="Chưa thiết lập đơn giá"
+          detail="Quản lý sẽ thiết lập đơn giá riêng cho căn hộ này."
+        />
+      )}
+    </section>
+  );
 }
