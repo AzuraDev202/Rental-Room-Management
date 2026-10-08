@@ -129,6 +129,12 @@ test("existing rates and tenant document history migrate without changing financ
         "utf8",
       ),
     );
+    await db.exec(
+      readFileSync(
+        "supabase/migrations/202610080005_delete_vacant_property.sql",
+        "utf8",
+      ),
+    );
     await db.exec("set role authenticated");
     assert.deepEqual(
       (

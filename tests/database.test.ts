@@ -66,6 +66,12 @@ test("migration, authorization and billing integration", async (t) => {
       "utf8",
     ),
   );
+  await db.exec(
+    readFileSync(
+      "supabase/migrations/202610080005_delete_vacant_property.sql",
+      "utf8",
+    ),
+  );
   await t.test("fresh database contains no example business data", async () => {
     for (const table of [
       "organizations",
@@ -523,10 +529,14 @@ test("migration, authorization and billing integration", async (t) => {
         [org, target],
         /khớp/,
       );
+      await db.query(
+        `insert into tenants(organization_id,room_id,full_name,gender,birth_date,identity_number,phone,move_in) values($1,$2,'Remaining tenant','Nam','1990-01-01','123456780001','0901234567','2000-01-01')`,
+        [org, room],
+      );
       await reject(
         `select public.delete_property($1,$2,'Building A')`,
         [org, property],
-        /Lịch sử/,
+        /còn người/,
       );
       await db.query(`select public.delete_property($1,$2,'Delete test')`, [
         org,
@@ -559,6 +569,27 @@ test("migration, authorization and billing integration", async (t) => {
           .length,
         2,
       );
+      const scheduledProperty = (
+        await query<{ id: string }>(
+          `select public.create_property($1,'Scheduled','Address',0,1) as id`,
+          [org],
+        )
+      )[0].id;
+      const scheduledRoom = (
+        await query<{ id: string }>(
+          `select id from rooms where property_id=$1`,
+          [scheduledProperty],
+        )
+      )[0].id;
+      await db.query(
+        `insert into tenants(organization_id,room_id,full_name,gender,birth_date,identity_number,phone,move_in) values($1,$2,'Scheduled tenant','Nam','1990-01-01','123456780002','0901234567','2099-01-01')`,
+        [org, scheduledRoom],
+      );
+      await reject(
+        `select public.delete_property($1,$2,'Scheduled')`,
+        [org, scheduledProperty],
+        /lịch vào ở/,
+      );
       const files = (
         await query<{ id: string }>(
           `select public.create_property($1,'Files','Address',0,1) as id`,
@@ -576,20 +607,37 @@ test("migration, authorization and billing integration", async (t) => {
         `insert into storage.objects(bucket_id,name) values('contracts',$1)`,
         [path],
       );
-      await reject(
-        `select public.delete_property($1,$2,'Files')`,
-        [org, files],
-        /tệp hợp đồng/,
+      await db.query(`select public.delete_property($1,$2,'Files')`, [
+        org,
+        files,
+      ]);
+      assert.equal(
+        (
+          await query(
+            `select * from properties where id=$1 and deleted_at is not null`,
+            [files],
+          )
+        ).length,
+        1,
       );
       assert.equal(
         (await query(`select * from rooms where id=$1`, [fileRoom])).length,
         1,
       );
-      await db.query(`delete from storage.objects where name=$1`, [path]);
-      await db.query(`select public.delete_property($1,$2,'Files')`, [
-        org,
-        files,
-      ]);
+      assert.equal(
+        (await query(`select * from storage.objects where name=$1`, [path]))
+          .length,
+        1,
+      );
+      assert.equal(
+        (
+          await query(
+            `delete from storage.objects where name=$1 returning id`,
+            [path],
+          )
+        ).length,
+        0,
+      );
       await reject(
         `insert into storage.objects(bucket_id,name) values('contracts',$1)`,
         [path],
@@ -750,6 +798,96 @@ test("migration, authorization and billing integration", async (t) => {
         `select public.link_tenant_document($1,'contract',$2,array[$3::uuid])`,
         [org, contract, wrongRoomTenant],
         /đúng phòng/,
+      );
+      await reject(
+        `select public.delete_property($1,$2,'Archive tests')`,
+        [org, prop],
+        /còn người/,
+      );
+      await db.query(`update tenants set move_out='2022-01-01' where id=$1`, [
+        newcomer,
+      ]);
+      await db.query(`select public.delete_property($1,$2,'Archive tests')`, [
+        org,
+        prop,
+      ]);
+      assert.equal(
+        (
+          await query(
+            `select * from properties where id=$1 and deleted_at is not null`,
+            [prop],
+          )
+        ).length,
+        1,
+      );
+      assert.equal(
+        (await query(`select * from invoices where id=$1`, [bill])).length,
+        1,
+      );
+      assert.equal(
+        (await query(`select * from payments where invoice_id=$1`, [bill]))
+          .length,
+        1,
+      );
+      assert.equal(
+        (await query(`select * from contracts where id=$1`, [contract])).length,
+        1,
+      );
+      assert.equal(
+        (await query(`select * from storage.objects where name=$1`, [path]))
+          .length,
+        1,
+      );
+      await reject(
+        `update properties set deleted_at=null where id=$1`,
+        [prop],
+        /permission denied/,
+      );
+      await reject(
+        `update rooms set monthly_rent=1 where id=$1`,
+        [archiveRoom],
+        /Căn hộ đã xóa/,
+      );
+      await reject(
+        `update rooms set property_id=$1 where id=$2`,
+        [property, archiveRoom],
+        /Căn hộ đã xóa/,
+      );
+      await reject(
+        `update property_service_rates set electricity=1 where property_id=$1`,
+        [prop],
+        /Căn hộ đã xóa/,
+      );
+      await reject(
+        `insert into tenants(organization_id,room_id,full_name,gender,birth_date,identity_number,phone,move_in) values($1,$2,'Blocked','Nam','1990-01-01','123456789005','0901234567','2000-01-01')`,
+        [org, archiveRoom],
+        /Căn hộ đã xóa/,
+      );
+      await reject(
+        `select public.create_invoice($1,$2,'2020-02-01','2020-02-05',10,11,1,2)`,
+        [org, archiveRoom],
+        /Căn hộ đã xóa/,
+      );
+      await reject(
+        `insert into storage.objects(bucket_id,name) values('contracts',$1)`,
+        [org + "/" + archiveRoom + "/blocked.pdf"],
+        /row-level security/,
+      );
+      assert.equal(
+        (
+          await query(`delete from contracts where id=$1 returning id`, [
+            contract,
+          ])
+        ).length,
+        0,
+      );
+      await db.query(`select public.record_payment($1,$2,1000)`, [org, bill]);
+      await db.query(`update tenants set phone='0901234560' where id=$1`, [
+        participants[0].id,
+      ]);
+      await db.query(
+        `select public.create_property($1,'Archive tests','New Address',0,1)`,
+        [org],
       );
       await as(users.viewer);
       assert.equal(

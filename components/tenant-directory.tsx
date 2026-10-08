@@ -71,7 +71,13 @@ export function TenantDirectory({
         {canWrite && (
           <button
             className="secondary"
-            disabled={!data.rooms.length}
+            disabled={
+              !data.rooms.some((r) =>
+                data.properties.some(
+                  (p) => p.id === r.property_id && !p.deleted_at,
+                ),
+              )
+            }
             onClick={add}
           >
             <Plus size={15} /> Thêm người thuê
@@ -112,6 +118,7 @@ export function TenantDirectory({
               .map((p) => (
                 <option key={p.id} value={p.id}>
                   {p.name}
+                  {p.deleted_at ? " (đã xóa)" : ""}
                 </option>
               ))}
           </select>
@@ -157,7 +164,10 @@ export function TenantDirectory({
           <div className="tenant-property-heading">
             <Building2 size={20} />
             <div>
-              <h3>{property.name}</h3>
+              <h3>
+                {property.name}
+                {property.deleted_at ? " · Đã xóa" : ""}
+              </h3>
               <p>{property.address}</p>
             </div>
             <span className="badge">

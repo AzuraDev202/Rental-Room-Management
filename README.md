@@ -5,7 +5,7 @@
 ## 1. Tạo và cấu hình Supabase
 
 1. Tạo dự án tại https://supabase.com/dashboard. Chọn vùng gần Việt Nam và lưu mật khẩu database trong trình quản lý mật khẩu.
-2. Mở **SQL Editor**, chạy lần lượt `supabase/migrations/202610080001_hh_home.sql` rồi `supabase/migrations/202610080002_property_service_rates.sql` rồi `supabase/migrations/202610080003_delete_property.sql` và `supabase/migrations/202610080004_tenant_document_history.sql`, mỗi file một lần trên dự án mới. Migration tạo bảng, RPC, RLS và bucket `contracts` riêng tư; không tạo dữ liệu căn hộ/người thuê/hóa đơn.
+2. Mở **SQL Editor**, chạy lần lượt `supabase/migrations/202610080001_hh_home.sql` rồi `supabase/migrations/202610080002_property_service_rates.sql` rồi `supabase/migrations/202610080003_delete_property.sql` và `supabase/migrations/202610080004_tenant_document_history.sql` và `supabase/migrations/202610080005_delete_vacant_property.sql`, mỗi file một lần trên dự án mới. Migration tạo bảng, RPC, RLS và bucket `contracts` riêng tư; không tạo dữ liệu căn hộ/người thuê/hóa đơn.
 3. Trong **Authentication → Providers → Email**, bật đăng ký email/password và **Confirm email**. Thiết lập mật khẩu tối thiểu 8 ký tự. Với môi trường production, cấu hình SMTP để gửi email xác nhận và đặt lại mật khẩu ổn định.
 4. Trong **Authentication → URL Configuration**, đặt Site URL theo domain triển khai và thêm redirect URL cho domain đó. Khi chạy local, thêm `http://localhost:3000` và `http://localhost:3000/**`. Production dùng domain HTTPS cụ thể, không dùng wildcard rộng.
 5. Lấy Project URL và **publishable key hoặc anon key** từ Project Settings → API. Chỉ hai giá trị công khai này được dùng trong frontend. Không dùng `service_role` hoặc secret key.
@@ -81,7 +81,9 @@ Migration mới tạo đơn giá riêng cho từng căn hộ, sao chép bộ đ�
 
 Cập nhật database đã có: chạy **nội dung** [202610080003_delete_property.sql](supabase/migrations/202610080003_delete_property.sql) một lần sau hai migration trước. Không chạy lại các migration đã áp dụng.
 
-Quản trị viên/Quản lý mở trang chi tiết căn hộ → **Xóa căn hộ**, nhập chính xác tên căn hộ và xác nhận. Căn hộ chưa có hồ sơ người thuê, hợp đồng, tệp hợp đồng hoặc hóa đơn có thể xóa cùng các phòng trống và đơn giá, trong một giao dịch. Căn hộ đã có dữ liệu nghiệp vụ bị chặn xóa để giữ lịch sử; không xóa hợp đồng/thanh toán qua chức năng này. Vai trò Chỉ xem không có quyền xóa. Có thể hủy trước khi xác nhận; sau khi xóa thành công không thể hoàn tác bằng ứng dụng.
+Quản trị viên/Quản lý mở trang chi tiết căn hộ → **Xóa căn hộ**, nhập chính xác tên căn hộ và xác nhận. Sau khi áp dụng migration 005, căn hộ không còn người đang ở hoặc lịch vào ở chưa kết thúc có thể xóa khỏi danh sách quản lý. Căn hộ chưa có dữ liệu được xóa cùng phòng/đơn giá; căn hộ có lịch sử được đánh dấu đã xóa, giữ phòng làm tham chiếu cho người thuê, hợp đồng, hóa đơn, thanh toán và tệp riêng tư. Xem tiếp ở Người thuê → Đã chuyển đi; vẫn thu được công nợ cũ. Căn hộ đã xóa không được nhận thêm người thuê, sửa phòng/đơn giá, lập hóa đơn hoặc tải hợp đồng mới.
+
+Chạy **nội dung** [202610080005_delete_vacant_property.sql](supabase/migrations/202610080005_delete_vacant_property.sql) một lần sau migration 004 để cập nhật quy tắc xóa; không chạy lại migration đã áp dụng. Căn hộ đã xóa không nằm trong số căn hộ/phòng đang quản lý hoặc cấu hình đơn giá, nhưng doanh thu và công nợ lịch sử vẫn giữ nguyên. Có thể tạo căn hộ mới cùng tên; hồ sơ mới độc lập với lịch sử cũ. Vai trò Chỉ xem không có quyền xóa.
 
 ## Lịch sử người thuê sau khi chuyển đi
 

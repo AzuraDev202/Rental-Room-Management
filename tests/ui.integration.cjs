@@ -38,6 +38,12 @@ const uid = "00000000-0000-0000-0000-000000000001",
       "utf8",
     ),
   );
+  await db.exec(
+    fs.readFileSync(
+      root + "/supabase/migrations/202610080005_delete_vacant_property.sql",
+      "utf8",
+    ),
+  );
   const browser = await chromium.launch({
     headless: true,
     ...(process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH
@@ -793,9 +799,108 @@ const uid = "00000000-0000-0000-0000-000000000001",
     ).rows.length,
     0,
   );
+  await page.getByRole("button", { name: "Đóng" }).click();
+  await page.getByRole("button", { name: "Quay lại", exact: true }).click();
+  await page.getByRole("button", { name: "Xóa căn hộ", exact: true }).click();
+  await page
+    .getByLabel("Nhập chính xác tên căn hộ để xác nhận")
+    .fill("Archive Building");
+  await page.getByRole("button", { name: "Xác nhận xóa căn hộ" }).click();
+  await page
+    .getByRole("alert")
+    .filter({ hasText: "Căn hộ còn người đang ở" })
+    .waitFor();
+  await page.getByRole("button", { name: "Hủy", exact: true }).click();
+  await page.getByRole("button", { name: /Phòng 1 1 người đang ở/ }).click();
+  await leave("Archive New");
+  await goToArchiveRoom(0);
+  await page.getByRole("button", { name: "Quay lại", exact: true }).click();
+  await page.getByRole("button", { name: "Xóa căn hộ", exact: true }).click();
+  await page
+    .getByLabel("Nhập chính xác tên căn hộ để xác nhận")
+    .fill("Archive Building");
+  await page.getByRole("button", { name: "Xác nhận xóa căn hộ" }).click();
+  await page
+    .getByRole("heading", { name: "Căn hộ của bạn", exact: true })
+    .waitFor();
+  assert.equal(
+    await page
+      .getByRole("button", { name: /Archive Building History Address/ })
+      .count(),
+    0,
+  );
+  assert.equal(
+    (
+      await db.query(
+        `select * from properties where id=$1 and deleted_at is not null`,
+        [archiveProperty],
+      )
+    ).rows.length,
+    1,
+  );
+  assert.equal(
+    (await db.query(`select * from invoices where id=$1`, [archiveInvoice]))
+      .rows.length,
+    1,
+  );
+  assert.equal(
+    (
+      await db.query(`select * from payments where invoice_id=$1`, [
+        archiveInvoice,
+      ])
+    ).rows.length,
+    1,
+  );
+  await page.reload();
+  await page.getByRole("heading", { name: "Xin chào, Owner" }).waitFor();
+  assert.equal(
+    await page
+      .getByRole("button", { name: /Archive Building History Address/ })
+      .count(),
+    0,
+  );
+  await page.getByRole("button", { name: "Mở menu" }).click();
+  await page.getByRole("button", { name: "Cài đặt", exact: true }).click();
+  assert.equal(
+    await page
+      .getByRole("region", { name: "Đơn giá dịch vụ · Archive Building" })
+      .count(),
+    0,
+  );
+  await page.getByRole("button", { name: "Mở menu" }).click();
+  await page.getByRole("button", { name: "Người thuê", exact: true }).click();
+  await inspectArchive("Archive A");
+  await page
+    .getByRole("heading", { name: "Archive Building · Đã xóa" })
+    .waitFor();
+  await page
+    .getByRole("row")
+    .filter({ hasText: "Archive A" })
+    .getByRole("button", { name: "Chi tiết" })
+    .click();
+  await page.getByRole("button", { name: "Sửa hồ sơ", exact: true }).click();
+  assert.equal(
+    await page.getByLabel("Phòng", { exact: true }).inputValue(),
+    archiveRoom,
+  );
+  await page.getByLabel("Số điện thoại", { exact: true }).fill("0901234560");
+  await page
+    .getByRole("button", { name: "Lưu người thuê", exact: true })
+    .click();
+  await page
+    .getByRole("heading", { name: "Cập nhật người thuê", exact: true })
+    .waitFor({ state: "hidden" });
+  assert.equal(
+    (
+      await db.query(`select phone from tenants where id=$1`, [
+        participants[0].id,
+      ])
+    ).rows[0].phone,
+    "0901234560",
+  );
   assert.deepEqual(errors, []);
   console.log(
-    "PASS: login, empty database, workspace, property rent, room rent, service rates, invitation, tenant, contract upload, invoice, partial payment, reload persistence, mobile layout, viewer permissions, shared document archive after departure, newcomer isolation. Backend = local PostgreSQL with real migration; Auth/Storage HTTP simulated.",
+    "PASS: login, empty database, workspace, property rent, room rent, service rates, invitation, tenant, contract upload, invoice, partial payment, reload persistence, mobile layout, viewer permissions, shared document archive after departure, newcomer isolation, vacant property deletion with retained tenant/payment history. Backend = local PostgreSQL with real migration; Auth/Storage HTTP simulated.",
   );
   await browser.close();
   await db.close();

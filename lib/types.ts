@@ -7,6 +7,7 @@ export type Membership = {
   email: string;
 };
 export type Property = {
+  deleted_at: string | null;
   id: string;
   organization_id: string;
   name: string;

@@ -59,7 +59,9 @@ Migration thứ hai chuyển các đơn giá cũ sang từng căn hộ hiện c�
 
 ## Xóa căn hộ
 
-RPC `delete_property(org, target_property, confirmation_name)` kiểm tra quyền admin/manager, tên xác nhận và khóa căn hộ/phòng. Chỉ cho xóa khi không có bất kỳ hồ sơ người thuê, hợp đồng, hóa đơn hoặc object hợp đồng nào; xóa phòng trống và đơn giá cùng căn hộ trong một giao dịch. Không cấp DELETE trực tiếp các bảng cho frontend. Các khóa và foreign key ngăn dữ liệu phát sinh đồng thời bị xóa nhầm. Hàm kiểm tra quyền upload Storage giữ khóa KEY SHARE trên phòng cho tới khi kết thúc giao dịch, tránh upload hợp đồng vào phòng đang được xóa.
+RPC `delete_property(org, target_property, confirmation_name)` kiểm tra quyền admin/manager, tên xác nhận và khóa căn hộ/phòng/người thuê. Migration 005 cho xóa khi mọi đợt thuê đã kết thúc theo ngày Việt Nam; chặn người đang ở và lịch thuê chưa kết thúc. Nếu chưa có dữ liệu, xóa phòng/đơn giá/căn hộ trong giao dịch. Nếu có lịch sử hoặc tệp Storage, cập nhật `properties.deleted_at`; giữ toàn bộ khóa ngoại, hồ sơ, chứng từ, tệp và thanh toán. UI lọc căn hộ/phòng đã xóa khỏi quản lý hiện tại, vẫn dùng tham chiếu lịch sử cho hồ sơ và báo cáo.
+
+Chỉ RPC được thay đổi `deleted_at`; quyền INSERT/UPDATE của frontend giới hạn các cột nghiệp vụ. Trigger chặn ghi phòng, đơn giá, hợp đồng, hóa đơn, đợt thuê vào căn hộ đã xóa, nhưng cho sửa thông tin liên hệ của hồ sơ cũ. Thu tiền và đọc Storage vẫn hoạt động; không cho tải lên/xóa tệp hợp đồng đã lưu trữ. Khóa SHARE trên căn hộ ở trigger/Storage và khóa UPDATE khi xóa ngăn thao tác phát sinh đồng thời. Unique index tên chỉ áp dụng căn hộ hiện hành, cho tái sử dụng tên mà không trộn lịch sử.
 
 ## Lưu trữ khi chuyển đi
 

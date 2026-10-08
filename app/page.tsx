@@ -232,8 +232,12 @@ function Workspace({ session }: { session: Session }) {
   const name =
     member?.display_name ||
     String(session.user.user_metadata.display_name || session.user.email || "");
-  const property = data.properties.find((p) => p.id === propertyId),
-    room = data.rooms.find((r) => r.id === roomId);
+  const currentProperties = data.properties.filter((p) => !p.deleted_at);
+  const currentRooms = data.rooms.filter((r) =>
+    currentProperties.some((p) => p.id === r.property_id),
+  );
+  const property = currentProperties.find((p) => p.id === propertyId),
+    room = currentRooms.find((r) => r.id === roomId);
   const notify = (s: string) => setToast(s);
   useEffect(() => {
     if (!toast) return;
@@ -386,7 +390,7 @@ function Workspace({ session }: { session: Session }) {
     setOwnerIds(documentTenants(data, kind, id).map((t) => t.id));
     setModal("document-owners");
   };
-  const occupied = data.rooms.filter(
+  const occupied = currentRooms.filter(
     (r) => activeTenants(r.id).length > 0,
   ).length;
   const outstanding = data.invoices.filter((i) => i.period.startsWith(period));
@@ -412,11 +416,26 @@ function Workspace({ session }: { session: Session }) {
     invoices: "Hóa đơn & thu tiền",
     settings: "Cài đặt",
   };
+  const tenantStayLocked =
+    tenant &&
+    modal === "tenant-edit" &&
+    (data.invoiceTenants.some((l) => l.tenant_id === tenant.id) ||
+      data.contractTenants.some((l) => l.tenant_id === tenant.id) ||
+      data.properties.some(
+        (p) =>
+          p.deleted_at &&
+          data.rooms.some(
+            (r) => r.property_id === p.id && r.id === tenant.room_id,
+          ),
+      ));
   const tenantFields: Field[] = [
     {
       name: "room_id",
       label: "Phòng",
-      options: data.rooms.map((r) => ({
+      options: (tenantStayLocked
+        ? data.rooms.filter((r) => r.id === tenant!.room_id)
+        : currentRooms
+      ).map((r) => ({
         value: r.id,
         label: `${data.properties.find((p) => p.id === r.property_id)?.name} · ${r.name}`,
       })),
@@ -431,7 +450,12 @@ function Workspace({ session }: { session: Session }) {
     { name: "identity_number", label: "Số CCCD (12 chữ số)" },
     { name: "phone", label: "Số điện thoại" },
     { name: "email", label: "Email (không bắt buộc)", type: "email" },
-    { name: "move_in", label: "Ngày vào ở", type: "date" },
+    {
+      name: "move_in",
+      label: "Ngày vào ở",
+      type: "date",
+      readOnly: !!tenantStayLocked,
+    },
   ];
   const logout = async () => {
     setBusy(true);
@@ -555,7 +579,7 @@ function Workspace({ session }: { session: Session }) {
               <Icon size={19} />
               {label}
               {id === "properties" && (
-                <span className="nav-count">{data.properties.length}</span>
+                <span className="nav-count">{currentProperties.length}</span>
               )}
             </button>
           ))}
@@ -702,22 +726,22 @@ function Workspace({ session }: { session: Session }) {
                     />
                     <Stat
                       label="Căn hộ đang quản lý"
-                      value={String(data.properties.length)}
+                      value={String(currentProperties.length)}
                       icon={<Building2 size={21} />}
-                      foot={`${data.rooms.length} phòng trong hệ thống`}
+                      foot={`${currentRooms.length} phòng trong hệ thống`}
                     />
                     <Stat
                       label="Tỷ lệ lấp đầy"
                       value={
-                        (data.rooms.length
-                          ? (occupied / data.rooms.length) * 100
+                        (currentRooms.length
+                          ? (occupied / currentRooms.length) * 100
                           : 0
                         ).toLocaleString("vi-VN", {
                           maximumFractionDigits: 1,
                         }) + "%"
                       }
                       icon={<DoorOpen size={21} />}
-                      foot={`${occupied} / ${data.rooms.length} phòng đang thuê`}
+                      foot={`${occupied} / ${currentRooms.length} phòng đang thuê`}
                     />
                     <Stat
                       label="Còn phải thu trong kỳ"
@@ -748,6 +772,7 @@ function Workspace({ session }: { session: Session }) {
                           {data.properties.map((p) => (
                             <option key={p.id} value={p.id}>
                               {p.name}
+                              {p.deleted_at ? " (đã xóa)" : ""}
                             </option>
                           ))}
                         </select>
@@ -774,11 +799,11 @@ function Workspace({ session }: { session: Session }) {
                       <div
                         className="donut"
                         style={{
-                          background: `conic-gradient(#2d6b52 0 ${data.rooms.length ? (occupied / data.rooms.length) * 100 : 0}%, #e7edde 0 100%)`,
+                          background: `conic-gradient(#2d6b52 0 ${currentRooms.length ? (occupied / currentRooms.length) * 100 : 0}%, #e7edde 0 100%)`,
                         }}
                       >
                         <div>
-                          <b>{data.rooms.length}</b>
+                          <b>{currentRooms.length}</b>
                           <span>Tổng số phòng</span>
                         </div>
                       </div>
@@ -789,7 +814,8 @@ function Workspace({ session }: { session: Session }) {
                         </div>
                         <div>
                           <i className="pale" />
-                          Còn trống <b>{data.rooms.length - occupied} phòng</b>
+                          Còn trống{" "}
+                          <b>{currentRooms.length - occupied} phòng</b>
                         </div>
                       </div>
                     </section>
@@ -802,7 +828,9 @@ function Workspace({ session }: { session: Session }) {
                     <div>
                       <h2>
                         Căn hộ của bạn{" "}
-                        <span className="badge">{data.properties.length}</span>
+                        <span className="badge">
+                          {currentProperties.length}
+                        </span>
                       </h2>
                       <p>Mỗi căn hộ, một mái nhà được chăm sóc.</p>
                     </div>
@@ -825,7 +853,7 @@ function Workspace({ session }: { session: Session }) {
                     )}
                   </div>
                   <div className="property-grid">
-                    {data.properties
+                    {currentProperties
                       .filter((p) =>
                         (p.name + " " + p.address)
                           .toLocaleLowerCase()
@@ -889,7 +917,7 @@ function Workspace({ session }: { session: Session }) {
                         );
                       })}
                   </div>
-                  {!data.properties.length ? (
+                  {!currentProperties.length ? (
                     <Empty
                       title="Chưa có căn hộ"
                       detail={
@@ -900,7 +928,7 @@ function Workspace({ session }: { session: Session }) {
                     />
                   ) : (
                     search &&
-                    !data.properties.some((p) =>
+                    !currentProperties.some((p) =>
                       (p.name + " " + p.address)
                         .toLowerCase()
                         .includes(search.toLowerCase()),
@@ -1274,7 +1302,7 @@ function Workspace({ session }: { session: Session }) {
               )}
               {page === "settings" && (
                 <>
-                  {data.properties.map((p) => (
+                  {currentProperties.map((p) => (
                     <PropertyRates
                       key={p.id}
                       property={p}
@@ -1452,12 +1480,13 @@ function Workspace({ session }: { session: Session }) {
               <>
                 <h2>Xóa căn hộ {property.name}?</h2>
                 <p>
-                  Thao tác này không thể hoàn tác. Các phòng trống và đơn giá
-                  của căn hộ sẽ được xóa cùng.
+                  Căn hộ sẽ được gỡ khỏi danh sách quản lý. Hồ sơ người thuê,
+                  hợp đồng, hóa đơn và thanh toán cũ vẫn được giữ lại.
                 </p>
                 <p>
-                  Chỉ có thể xóa căn hộ chưa có hồ sơ người thuê, hợp đồng, tệp
-                  hợp đồng hoặc hóa đơn. Lịch sử đã phát sinh được giữ lại.
+                  Có thể xóa khi tất cả người thuê đã chuyển đi và không còn
+                  lịch vào ở chưa kết thúc. Bạn vẫn có thể xem lịch sử và thu
+                  công nợ tại hồ sơ người thuê.
                 </p>
                 <DataForm
                   schema={deletePropertySchema(property.name)}
