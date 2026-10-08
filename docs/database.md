@@ -13,6 +13,10 @@ erDiagram
   ROOMS ||--o{ CONTRACTS : stores
   ROOMS ||--o{ INVOICES : bills
   INVOICES ||--o{ PAYMENTS : collects
+  INVOICES ||--o{ INVOICE_TENANTS : participants
+  TENANTS ||--o{ INVOICE_TENANTS : archives
+  CONTRACTS ||--o{ CONTRACT_TENANTS : participants
+  TENANTS ||--o{ CONTRACT_TENANTS : archives
 ```
 
 | Bảng                   | Dữ liệu / ràng buộc                                                                                |
@@ -56,3 +60,9 @@ Migration thứ hai chuyển các đơn giá cũ sang từng căn hộ hiện c�
 ## Xóa căn hộ
 
 RPC `delete_property(org, target_property, confirmation_name)` kiểm tra quyền admin/manager, tên xác nhận và khóa căn hộ/phòng. Chỉ cho xóa khi không có bất kỳ hồ sơ người thuê, hợp đồng, hóa đơn hoặc object hợp đồng nào; xóa phòng trống và đơn giá cùng căn hộ trong một giao dịch. Không cấp DELETE trực tiếp các bảng cho frontend. Các khóa và foreign key ngăn dữ liệu phát sinh đồng thời bị xóa nhầm. Hàm kiểm tra quyền upload Storage giữ khóa KEY SHARE trên phòng cho tới khi kết thúc giao dịch, tránh upload hợp đồng vào phòng đang được xóa.
+
+## Lưu trữ khi chuyển đi
+
+Migration 004 thêm `invoice_tenants` và `contract_tenants`, khóa ngoại kép xác nhận cùng không gian. Trigger chốt người liên quan khi tạo chứng từ; migration liên kết dữ liệu cũ bằng thời gian thuê/thời điểm lập. Liên kết không tự thay đổi khi chuyển đi hoặc thêm người mới. Admin/manager có thể thêm liên kết qua `link_tenant_document`; RLS cho các vai trò cùng không gian đọc, không cho ghi/xóa liên kết trực tiếp.
+
+Ghi nhận chuyển đi cập nhật `tenants.move_out`; `room_id` vẫn giữ làm tham chiếu lịch sử, nhưng người thuê không hiện trong danh sách đang ở. Chứng từ trong phòng được lọc theo người liên quan đang ở; chứng từ chung vẫn còn cho người ở lại. Hồ sơ người thuê hiện chứng từ liên quan và thanh toán gốc; không sao chép hóa đơn hoặc nhân đôi doanh thu. Tài liệu cũ chưa có liên kết vẫn hiện để quản lý gán đúng người. Ngày vào ở/phòng của hồ sơ đã có chứng từ được bảo vệ; không mở lại đợt ở đã kết thúc.

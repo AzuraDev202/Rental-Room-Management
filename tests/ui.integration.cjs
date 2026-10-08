@@ -32,6 +32,12 @@ const uid = "00000000-0000-0000-0000-000000000001",
       "utf8",
     ),
   );
+  await db.exec(
+    fs.readFileSync(
+      root + "/supabase/migrations/202610080004_tenant_document_history.sql",
+      "utf8",
+    ),
+  );
   const browser = await chromium.launch({
     headless: true,
     ...(process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH
@@ -166,6 +172,8 @@ const uid = "00000000-0000-0000-0000-000000000001",
         [
           "organizations",
           "memberships",
+          "invoice_tenants",
+          "contract_tenants",
           "properties",
           "rooms",
           "tenants",
@@ -586,9 +594,208 @@ const uid = "00000000-0000-0000-0000-000000000001",
     await page.getByRole("button", { name: /Delete UI Address/ }).count(),
     0,
   );
+  // Two original occupants share documents; leaving archives their own access without
+  // removing the remaining occupant's room documents or transferring them to a newcomer.
+  await db.exec(
+    `reset role;set role authenticated;select set_config('request.jwt.claim.sub','${uid}',false)`,
+  );
+  const archiveOrg = (await db.query(`select id from organizations limit 1`))
+    .rows[0].id;
+  const archiveProperty = (
+    await db.query(
+      `select public.create_property($1,'Archive Building','History Address',0,1) as id`,
+      [archiveOrg],
+    )
+  ).rows[0].id;
+  const archiveRoom = (
+    await db.query(`select id from rooms where property_id=$1`, [
+      archiveProperty,
+    ])
+  ).rows[0].id;
+  await db.query(
+    `insert into property_service_rates(property_id,organization_id,electricity,water,trash,wifi,laundry) values($1,$2,1000,5000,0,0,0)`,
+    [archiveProperty, archiveOrg],
+  );
+  const participants = (
+    await db.query(
+      `insert into tenants(organization_id,room_id,full_name,gender,birth_date,identity_number,phone,move_in) values($1,$2,'Archive A','Nam','1990-01-01','123456789001','0901234567','2000-01-01'),($1,$2,'Archive B','Nữ','1990-01-01','123456789002','0901234568','2000-01-01') returning id`,
+      [archiveOrg, archiveRoom],
+    )
+  ).rows;
+  const archiveInvoice = (
+    await db.query(
+      `select public.create_invoice($1,$2,'2020-01-01','2020-01-05',0,10,0,1) as id`,
+      [archiveOrg, archiveRoom],
+    )
+  ).rows[0].id;
+  const archivePath = archiveOrg + "/" + archiveRoom + "/shared-history.pdf";
+  await db.query(
+    `insert into storage.objects(bucket_id,name) values('contracts',$1)`,
+    [archivePath],
+  );
+  await db.query(
+    `insert into contracts(organization_id,room_id,file_name,storage_path,starts_on,ends_on) values($1,$2,'shared-history.pdf',$3,'2000-01-01','2099-01-01')`,
+    [archiveOrg, archiveRoom, archivePath],
+  );
+  await db.query(`select public.record_payment($1,$2,1000)`, [
+    archiveOrg,
+    archiveInvoice,
+  ]);
+  await page.reload();
+  await page.getByRole("heading", { name: "Xin chào, Owner" }).waitFor();
+  const goToArchiveRoom = async (people) => {
+    await page.getByRole("button", { name: "Mở menu" }).click();
+    await page.getByRole("button", { name: /^Căn hộ/ }).click();
+    await page
+      .getByRole("button", { name: /Archive Building History Address/ })
+      .click();
+    await page
+      .getByRole("button", {
+        name: people
+          ? new RegExp("Phòng 1 " + people + " người đang ở")
+          : /Phòng 1 Chưa có người thuê/,
+      })
+      .click();
+  };
+  const leave = async (name) => {
+    await page.locator(".tenant-row").filter({ hasText: name }).click();
+    await page
+      .getByRole("button", { name: "Ghi nhận chuyển đi", exact: true })
+      .click();
+    await page.getByRole("button", { name: "Lưu", exact: true }).click();
+    await page
+      .getByRole("heading", { name: "Người thuê", exact: true })
+      .waitFor();
+    await page
+      .getByRole("row")
+      .filter({ hasText: name })
+      .waitFor({ state: "hidden" });
+    await page
+      .getByRole("heading", { name: "Ghi nhận chuyển đi", exact: true })
+      .waitFor({ state: "hidden" });
+  };
+  const inspectArchive = async (name) => {
+    await page
+      .getByLabel("Lọc trạng thái người thuê")
+      .selectOption("Đã chuyển đi");
+    await page
+      .getByRole("row")
+      .filter({ hasText: name })
+      .getByRole("button", { name: "Chi tiết" })
+      .click();
+    await page
+      .getByRole("button", { name: "Xem hợp đồng", exact: true })
+      .waitFor();
+    const opened = page.waitForEvent("popup");
+    await page
+      .getByRole("button", { name: "Xem hợp đồng", exact: true })
+      .click();
+    const popup = await opened;
+    await popup.waitForURL(/object\/sign\/contracts/);
+    await popup.close();
+    await page
+      .getByRole("button", { name: "Xem hóa đơn", exact: true })
+      .click();
+    await page.getByRole("heading", { name: "Lịch sử thanh toán" }).waitFor();
+    await page
+      .getByRole("button", { name: "Quay lại hồ sơ người thuê" })
+      .click();
+    await page.getByRole("button", { name: "Đóng" }).click();
+  };
+  await goToArchiveRoom(2);
+  await leave("Archive A");
+  assert.equal(await page.getByText("Archive A", { exact: true }).count(), 0);
+  await inspectArchive("Archive A");
+  await goToArchiveRoom(1);
+  await page.getByText("shared-history.pdf", { exact: true }).waitFor();
+  await page.getByRole("heading", { name: "Hóa đơn người đang ở" }).waitFor();
+  await page
+    .getByRole("button", { name: /Phòng 1 · Archive Building/ })
+    .waitFor();
+  assert.equal(
+    await page.locator(".tenant-row").filter({ hasText: "Archive A" }).count(),
+    0,
+  );
+  await leave("Archive B");
+  await inspectArchive("Archive B");
+  await goToArchiveRoom(0);
+  assert.equal(
+    await page.getByText("shared-history.pdf", { exact: true }).count(),
+    0,
+  );
+  assert.equal(
+    await page
+      .getByRole("button", { name: /Phòng 1 · Archive Building/ })
+      .count(),
+    0,
+  );
+  assert.equal(
+    await page
+      .getByRole("button", { name: "Tải lên", exact: true })
+      .isDisabled(),
+    true,
+  );
+  assert.equal(
+    (
+      await db.query(`select * from payments where invoice_id=$1`, [
+        archiveInvoice,
+      ])
+    ).rows.length,
+    1,
+  );
+  assert.equal(
+    (
+      await db.query(`select * from storage.objects where name=$1`, [
+        archivePath,
+      ])
+    ).rows.length,
+    1,
+  );
+  const newcomer = (
+    await db.query(
+      `insert into tenants(organization_id,room_id,full_name,gender,birth_date,identity_number,phone,move_in) values($1,$2,'Archive New','Nam','1990-01-01','123456789003','0901234569','2001-01-01') returning id`,
+      [archiveOrg, archiveRoom],
+    )
+  ).rows[0].id;
+  await page.reload();
+  await page.getByRole("heading", { name: "Xin chào, Owner" }).waitFor();
+  await goToArchiveRoom(1);
+  assert.equal(
+    await page.getByText("shared-history.pdf", { exact: true }).count(),
+    0,
+  );
+  await page.locator(".tenant-row").filter({ hasText: "Archive New" }).click();
+  assert.equal(
+    await page
+      .getByRole("button", { name: "Xem hợp đồng", exact: true })
+      .count(),
+    0,
+  );
+  assert.equal(
+    await page
+      .getByRole("button", { name: "Xem hóa đơn", exact: true })
+      .count(),
+    0,
+  );
+  assert.equal(
+    (
+      await db.query(`select * from invoice_tenants where tenant_id=$1`, [
+        newcomer,
+      ])
+    ).rows.length,
+    0,
+  );
+  assert.equal(
+    (
+      await db.query(`select * from contract_tenants where tenant_id=$1`, [
+        newcomer,
+      ])
+    ).rows.length,
+    0,
+  );
   assert.deepEqual(errors, []);
   console.log(
-    "PASS: login, empty database, workspace, property rent, room rent, service rates, invitation, tenant, contract upload, invoice, partial payment, reload persistence, mobile layout, viewer permissions. Backend = local PostgreSQL with real migration; Auth/Storage HTTP simulated.",
+    "PASS: login, empty database, workspace, property rent, room rent, service rates, invitation, tenant, contract upload, invoice, partial payment, reload persistence, mobile layout, viewer permissions, shared document archive after departure, newcomer isolation. Backend = local PostgreSQL with real migration; Auth/Storage HTTP simulated.",
   );
   await browser.close();
   await db.close();

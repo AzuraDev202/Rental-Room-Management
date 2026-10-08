@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { PGlite } from "@electric-sql/pglite";
-test("existing organization rates migrate to properties without changing historical invoices", async () => {
+test("existing rates and tenant document history migrate without changing financial records", async () => {
   const db = new PGlite();
   try {
     await db.exec(
@@ -48,6 +48,34 @@ test("existing organization rates migrate to properties without changing histori
       )
     ).rows[0].id;
     await db.query(`select public.record_payment($1,$2,50000)`, [org, invoice]);
+    // Existing documents predate the new resident, despite a long contract end date.
+    const originalTenant = (
+      await db.query<{ id: string }>(
+        `insert into tenants(organization_id,room_id,full_name,gender,birth_date,identity_number,phone,move_in,move_out) values($1,$2,'Original','Nam','1990-01-01','123456789001','0901234567','2000-01-01','2020-02-01') returning id`,
+        [org, room],
+      )
+    ).rows[0].id;
+    const newcomer = (
+      await db.query<{ id: string }>(
+        `insert into tenants(organization_id,room_id,full_name,gender,birth_date,identity_number,phone,move_in) values($1,$2,'Newcomer','Nam','1990-01-01','123456789002','0901234568','2021-01-01') returning id`,
+        [org, room],
+      )
+    ).rows[0].id;
+    const contract = (
+      await db.query<{ id: string }>(
+        `insert into contracts(organization_id,room_id,file_name,storage_path,starts_on,ends_on) values($1,$2,'Existing.pdf',$3,'2020-01-01','2099-01-01') returning id`,
+        [org, room, org + "/" + room + "/existing.pdf"],
+      )
+    ).rows[0].id;
+    await db.exec("reset role");
+    await db.query(`update invoices set created_at='2020-01-05' where id=$1`, [
+      invoice,
+    ]);
+    await db.query(`update contracts set created_at='2020-01-05' where id=$1`, [
+      contract,
+    ]);
+    await db.exec("set role authenticated");
+
     const before = (
       await db.query(`select * from invoices where id=$1`, [invoice])
     ).rows[0];
@@ -87,6 +115,63 @@ test("existing organization rates migrate to properties without changing histori
     await assert.rejects(
       db.query("select * from legacy_organization_service_rates"),
       /permission denied/,
+    );
+    await db.exec("reset role");
+    await db.exec(
+      readFileSync(
+        "supabase/migrations/202610080003_delete_property.sql",
+        "utf8",
+      ),
+    );
+    await db.exec(
+      readFileSync(
+        "supabase/migrations/202610080004_tenant_document_history.sql",
+        "utf8",
+      ),
+    );
+    await db.exec("set role authenticated");
+    assert.deepEqual(
+      (
+        await db.query(
+          `select tenant_id from invoice_tenants where invoice_id=$1`,
+          [invoice],
+        )
+      ).rows,
+      [{ tenant_id: originalTenant }],
+    );
+    assert.deepEqual(
+      (
+        await db.query(
+          `select tenant_id from contract_tenants where contract_id=$1`,
+          [contract],
+        )
+      ).rows,
+      [{ tenant_id: originalTenant }],
+    );
+    assert.equal(
+      (
+        await db.query(`select * from invoice_tenants where tenant_id=$1`, [
+          newcomer,
+        ])
+      ).rows.length,
+      0,
+    );
+    assert.equal(
+      (
+        await db.query(`select * from contract_tenants where tenant_id=$1`, [
+          newcomer,
+        ])
+      ).rows.length,
+      0,
+    );
+    assert.deepEqual(
+      (await db.query(`select * from invoices where id=$1`, [invoice])).rows[0],
+      before,
+    );
+    assert.equal(
+      (await db.query(`select * from payments where invoice_id=$1`, [invoice]))
+        .rows.length,
+      1,
     );
     const newOrg = (
       await db.query<{ id: string }>(

@@ -87,3 +87,28 @@ export function tenantStatus(
   if (tenant.move_in > day) return "Sắp vào ở";
   return "Đang ở";
 }
+
+export function documentTenants(
+  data: import("./types").Data,
+  kind: "invoice" | "contract",
+  id: string,
+) {
+  const ids = new Set(
+    kind === "invoice"
+      ? data.invoiceTenants
+          .filter((l) => l.invoice_id === id)
+          .map((l) => l.tenant_id)
+      : data.contractTenants
+          .filter((l) => l.contract_id === id)
+          .map((l) => l.tenant_id),
+  );
+  return data.tenants.filter((t) => ids.has(t.id));
+}
+export function isCurrentDocument(
+  data: import("./types").Data,
+  kind: "invoice" | "contract",
+  id: string,
+) {
+  const owners = documentTenants(data, kind, id);
+  return !owners.length || owners.some((t) => tenantStatus(t) === "Đang ở");
+}

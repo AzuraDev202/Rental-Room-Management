@@ -47,6 +47,8 @@ export async function loadData(org: string, admin: boolean): Promise<Data> {
     "payments",
     "contracts",
     "memberships",
+    "invoice_tenants",
+    "contract_tenants",
     ...(admin ? ["invitations"] : []),
   ];
   const result = await Promise.all(tables.map((t) => rows(t, org)));
@@ -59,7 +61,9 @@ export async function loadData(org: string, admin: boolean): Promise<Data> {
     payments: result[5],
     contracts: result[6],
     members: result[7],
-    invitations: result[8] || [],
+    invoiceTenants: result[8],
+    contractTenants: result[9],
+    invitations: result[10] || [],
   } as unknown as Data;
 }
 export async function rpc(name: string, args: Record<string, unknown>) {

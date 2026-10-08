@@ -80,7 +80,21 @@ export type Invitation = {
   email: string;
   role: "manager" | "viewer";
 };
+export type InvoiceTenant = {
+  id: string;
+  organization_id: string;
+  invoice_id: string;
+  tenant_id: string;
+};
+export type ContractTenant = {
+  id: string;
+  organization_id: string;
+  contract_id: string;
+  tenant_id: string;
+};
 export type Data = {
+  invoiceTenants: InvoiceTenant[];
+  contractTenants: ContractTenant[];
   properties: Property[];
   rooms: Room[];
   tenants: Tenant[];
@@ -92,6 +106,8 @@ export type Data = {
   invitations: Invitation[];
 };
 export const emptyData: Data = {
+  invoiceTenants: [],
+  contractTenants: [],
   properties: [],
   rooms: [],
   tenants: [],

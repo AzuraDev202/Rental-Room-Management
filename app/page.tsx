@@ -61,6 +61,8 @@ import {
   localDay,
   calculateBill,
   tenantStatus,
+  documentTenants,
+  isCurrentDocument,
   revenueSeries,
 } from "../lib/business";
 import { loadData, rpc, insert, update, databaseError } from "../lib/data";
@@ -215,7 +217,13 @@ function Workspace({ session }: { session: Session }) {
     [tenant, setTenant] = useState<Tenant | null>(null),
     [invoice, setInvoice] = useState<Invoice | null>(null),
     [chartProperty, setChartProperty] = useState(""),
-    [busy, setBusy] = useState(false);
+    [busy, setBusy] = useState(false),
+    [documentTarget, setDocumentTarget] = useState<{
+      kind: "invoice" | "contract";
+      id: string;
+      roomId: string;
+    } | null>(null),
+    [ownerIds, setOwnerIds] = useState<string[]>([]);
   const member =
     data.members.find((m) => m.user_id === session.user.id) ||
     memberships.find((m) => m.organization_id === org);
@@ -357,6 +365,27 @@ function Workspace({ session }: { session: Session }) {
     data.tenants.filter(
       (t) => t.room_id === id && tenantStatus(t) === "Đang ở",
     );
+  const currentRoomContracts = room
+    ? data.contracts.filter(
+        (c) =>
+          c.room_id === room.id && isCurrentDocument(data, "contract", c.id),
+      )
+    : [];
+  const currentRoomInvoices = room
+    ? data.invoices.filter(
+        (i) =>
+          i.room_id === room.id && isCurrentDocument(data, "invoice", i.id),
+      )
+    : [];
+  const assignOwners = (
+    kind: "invoice" | "contract",
+    id: string,
+    roomId: string,
+  ) => {
+    setDocumentTarget({ kind, id, roomId });
+    setOwnerIds(documentTenants(data, kind, id).map((t) => t.id));
+    setModal("document-owners");
+  };
   const occupied = data.rooms.filter(
     (r) => activeTenants(r.id).length > 0,
   ).length;
@@ -903,10 +932,12 @@ function Workspace({ session }: { session: Session }) {
                     data={data}
                     canWrite={canWrite}
                     pay={(i) => {
+                      setTenant(null);
                       setInvoice(i);
                       setModal("payment");
                     }}
                     detail={(i) => {
+                      setTenant(null);
                       setInvoice(i);
                       setModal("invoice-detail");
                     }}
@@ -1060,39 +1091,78 @@ function Workspace({ session }: { session: Session }) {
                     <section className="panel contracts-panel">
                       <div className="panel-heading">
                         <div>
+                          <h2>Hóa đơn người đang ở</h2>
+                          <p>
+                            Hồ sơ đã chuyển đi được lưu tại trang Người thuê.
+                          </p>
+                        </div>
+                      </div>
+                      <Invoices
+                        invoices={currentRoomInvoices}
+                        data={data}
+                        canWrite={canWrite}
+                        pay={(i) => {
+                          setTenant(null);
+                          setInvoice(i);
+                          setModal("payment");
+                        }}
+                        detail={(i) => {
+                          setTenant(null);
+                          setInvoice(i);
+                          setModal("invoice-detail");
+                        }}
+                      />
+                    </section>
+                    <section className="panel contracts-panel">
+                      <div className="panel-heading">
+                        <div>
                           <h2>Hợp đồng thuê</h2>
                           <p>PDF, JPG hoặc PNG · tối đa 10 MB</p>
                         </div>
                         {canWrite && (
                           <button
                             className="secondary"
+                            disabled={!activeTenants(room.id).length}
                             onClick={() => setModal("contract")}
                           >
                             <Upload size={15} /> Tải lên
                           </button>
                         )}
                       </div>
-                      {data.contracts
-                        .filter((c) => c.room_id === room.id)
-                        .map((c) => (
-                          <div className="contract" key={c.id}>
-                            <FileText size={25} />
-                            <div>
-                              <b>{c.file_name}</b>
-                              <small>
-                                {c.starts_on} – {c.ends_on}
-                              </small>
-                            </div>
-                            <button
-                              className="secondary"
-                              disabled={busy}
-                              onClick={() => viewContract(c, setError, setBusy)}
-                            >
-                              Xem
-                            </button>
+                      {currentRoomContracts.map((c) => (
+                        <div className="contract" key={c.id}>
+                          <FileText size={25} />
+                          <div>
+                            <b>{c.file_name}</b>
+                            <small>
+                              {c.starts_on} – {c.ends_on}
+                            </small>
+                            <small>
+                              {documentTenants(data, "contract", c.id)
+                                .map((t) => t.full_name)
+                                .join(", ") || "Chưa gán người thuê"}
+                            </small>
                           </div>
-                        ))}
-                      {!data.contracts.some((c) => c.room_id === room.id) && (
+                          <button
+                            className="secondary"
+                            disabled={busy}
+                            onClick={() => viewContract(c, setError, setBusy)}
+                          >
+                            Xem
+                          </button>
+                          {canWrite && (
+                            <button
+                              className="text-button"
+                              onClick={() =>
+                                assignOwners("contract", c.id, c.room_id)
+                              }
+                            >
+                              Gán người thuê
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                      {!currentRoomContracts.length && (
                         <Empty
                           title="Chưa có hợp đồng"
                           detail="Tải hợp đồng đã ký để lưu cùng phòng."
@@ -1108,7 +1178,7 @@ function Workspace({ session }: { session: Session }) {
                       </div>
                       <ReceiptText size={19} />
                     </div>
-                    {canWrite && roomRates ? (
+                    {canWrite && roomRates && activeTenants(room.id).length ? (
                       <InvoiceForm
                         key={room.id + period + (previous?.id || "")}
                         period={period}
@@ -1134,11 +1204,19 @@ function Workspace({ session }: { session: Session }) {
                       />
                     ) : (
                       <Empty
-                        title={canWrite ? "Chưa có đơn giá" : "Quyền chỉ xem"}
+                        title={
+                          !activeTenants(room.id).length
+                            ? "Chưa có người đang ở"
+                            : canWrite
+                              ? "Chưa có đơn giá"
+                              : "Quyền chỉ xem"
+                        }
                         detail={
-                          canWrite
-                            ? "Thiết lập đơn giá của căn hộ này trong Cài đặt trước khi lập hóa đơn."
-                            : "Bạn có thể xem hóa đơn tại trang Hóa đơn."
+                          !activeTenants(room.id).length
+                            ? "Thêm người thuê mới trước khi lập hóa đơn cho đợt ở mới."
+                            : canWrite
+                              ? "Thiết lập đơn giá của căn hộ này trong Cài đặt trước khi lập hóa đơn."
+                              : "Bạn có thể xem hóa đơn tại trang Hóa đơn."
                         }
                       />
                     )}
@@ -1182,10 +1260,12 @@ function Workspace({ session }: { session: Session }) {
                     data={data}
                     canWrite={canWrite}
                     pay={(i) => {
+                      setTenant(null);
                       setInvoice(i);
                       setModal("payment");
                     }}
                     detail={(i) => {
+                      setTenant(null);
                       setInvoice(i);
                       setModal("invoice-detail");
                     }}
@@ -1540,6 +1620,92 @@ function Workspace({ session }: { session: Session }) {
                     </div>
                   ))}
                 </div>
+                <h3 className="history-title">Hợp đồng của người thuê</h3>
+                {data.contracts
+                  .filter((c) =>
+                    data.contractTenants.some(
+                      (l) =>
+                        l.contract_id === c.id && l.tenant_id === tenant.id,
+                    ),
+                  )
+                  .map((c) => (
+                    <div className="contract" key={c.id}>
+                      <FileText size={20} />
+                      <div>
+                        <b>{c.file_name}</b>
+                        <small>
+                          {c.starts_on} – {c.ends_on}
+                        </small>
+                      </div>
+                      <button
+                        className="secondary"
+                        disabled={busy}
+                        onClick={() => viewContract(c, setError, setBusy)}
+                      >
+                        Xem hợp đồng
+                      </button>
+                    </div>
+                  ))}
+                {!data.contractTenants.some(
+                  (l) => l.tenant_id === tenant.id,
+                ) && (
+                  <p className="form-hint">
+                    Chưa có hợp đồng được gán cho hồ sơ này.
+                  </p>
+                )}
+                <h3 className="history-title">
+                  Hóa đơn & thanh toán của người thuê
+                </h3>
+                <p className="form-hint">
+                  Hóa đơn chung có một công nợ và lịch sử thanh toán dùng chung
+                  cho các người thuê liên quan.
+                </p>
+                {data.invoices
+                  .filter((i) =>
+                    data.invoiceTenants.some(
+                      (l) => l.invoice_id === i.id && l.tenant_id === tenant.id,
+                    ),
+                  )
+                  .sort((a, b) => b.period.localeCompare(a.period))
+                  .map((i) => (
+                    <div className="tenant-invoice-history" key={i.id}>
+                      <div>
+                        <b>
+                          Kỳ {i.period.slice(0, 7)} · {money(i.total)}
+                        </b>
+                        <small>
+                          Còn phải thu: {money(balance(i, data.payments))}
+                        </small>
+                      </div>
+                      <button
+                        className="text-button"
+                        onClick={() => {
+                          setInvoice(i);
+                          setModal("invoice-detail");
+                        }}
+                      >
+                        Xem hóa đơn
+                      </button>
+                      {canWrite && balance(i, data.payments) > 0 && (
+                        <button
+                          className="text-button"
+                          onClick={() => {
+                            setInvoice(i);
+                            setModal("payment");
+                          }}
+                        >
+                          Thu tiền
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                {!data.invoiceTenants.some(
+                  (l) => l.tenant_id === tenant.id,
+                ) && (
+                  <p className="form-hint">
+                    Chưa có hóa đơn được gán cho hồ sơ này.
+                  </p>
+                )}
                 {canWrite && (
                   <>
                     <button
@@ -1563,18 +1729,24 @@ function Workspace({ session }: { session: Session }) {
             {modal === "move-out" && tenant && (
               <>
                 <h2>Ghi nhận chuyển đi</h2>
-                <p>Hồ sơ và lịch sử thanh toán được giữ lại.</p>
+                <p>
+                  Người thuê sẽ được chuyển sang trạng thái Đã chuyển đi. Hợp
+                  đồng, hóa đơn và thanh toán được lưu trong hồ sơ người thuê,
+                  không hiển thị ở phòng khi không còn người thuê liên quan đang
+                  ở.
+                </p>
                 <form
                   onSubmit={async (e) => {
                     e.preventDefault();
                     const date = String(
                       new FormData(e.currentTarget).get("move_out"),
                     );
-                    await act(
-                      () =>
-                        update("tenants", tenant.id, org, { move_out: date }),
-                      "Đã ghi nhận chuyển đi",
-                    );
+                    await act(async () => {
+                      await update("tenants", tenant.id, org, {
+                        move_out: date,
+                      });
+                      navigate("tenants");
+                    }, "Đã ghi nhận chuyển đi");
                   }}
                 >
                   <label>
@@ -1589,6 +1761,68 @@ function Workspace({ session }: { session: Session }) {
                   </label>
                   <button className="primary wide" disabled={busy}>
                     Lưu
+                  </button>
+                </form>
+              </>
+            )}
+            {modal === "document-owners" && documentTarget && (
+              <>
+                <h2>Gán tài liệu cho người thuê</h2>
+                <p>
+                  Chọn người thuộc đợt thuê liên quan. Với tài liệu chung, chọn
+                  tất cả người liên quan. Hồ sơ đã gán được giữ lại.
+                </p>
+                <form
+                  onSubmit={async (e) => {
+                    e.preventDefault();
+                    await act(
+                      () =>
+                        rpc("link_tenant_document", {
+                          org,
+                          document_kind: documentTarget.kind,
+                          target_document: documentTarget.id,
+                          tenant_ids: ownerIds,
+                        }),
+                      "Đã gán tài liệu cho người thuê",
+                    );
+                  }}
+                >
+                  {data.tenants
+                    .filter((t) => t.room_id === documentTarget.roomId)
+                    .map((t) => (
+                      <label className="owner-checkbox" key={t.id}>
+                        <input
+                          type="checkbox"
+                          checked={ownerIds.includes(t.id)}
+                          disabled={
+                            busy ||
+                            documentTenants(
+                              data,
+                              documentTarget.kind,
+                              documentTarget.id,
+                            ).some((o) => o.id === t.id)
+                          }
+                          onChange={(e) =>
+                            setOwnerIds(
+                              e.target.checked
+                                ? [...ownerIds, t.id]
+                                : ownerIds.filter((id) => id !== t.id),
+                            )
+                          }
+                        />
+                        <span>
+                          {t.full_name}
+                          <small>
+                            {t.move_in} · {tenantStatus(t)}
+                          </small>
+                        </span>
+                      </label>
+                    ))}
+                  <button
+                    className="primary wide"
+                    disabled={busy || !ownerIds.length}
+                  >
+                    Lưu người thuê liên quan
                   </button>
                 </form>
               </>
@@ -1655,6 +1889,30 @@ function Workspace({ session }: { session: Session }) {
                     </div>
                   ))}
                 </div>
+                <div className="history-title">
+                  Người thuê liên quan:{" "}
+                  {documentTenants(data, "invoice", invoice.id)
+                    .map((t) => t.full_name)
+                    .join(", ") || "Chưa gán"}
+                </div>
+                {canWrite && (
+                  <button
+                    className="secondary wide"
+                    onClick={() =>
+                      assignOwners("invoice", invoice.id, invoice.room_id)
+                    }
+                  >
+                    Gán người thuê
+                  </button>
+                )}
+                {tenant && (
+                  <button
+                    className="text-button wide"
+                    onClick={() => setModal("tenant-detail")}
+                  >
+                    Quay lại hồ sơ người thuê
+                  </button>
+                )}
                 <h3 className="history-title">Lịch sử thanh toán</h3>
                 {data.payments
                   .filter((p) => p.invoice_id === invoice.id)
@@ -1798,12 +2056,25 @@ function Invoices({
               <tr key={i.id}>
                 <td>
                   <button className="text-button" onClick={() => detail(i)}>
-                    {room?.name} ·{" "}
-                    {
-                      data.properties.find((p) => p.id === room?.property_id)
-                        ?.name
-                    }
+                    {isCurrentDocument(data, "invoice", i.id) ? (
+                      <>
+                        {room?.name} ·{" "}
+                        {
+                          data.properties.find(
+                            (p) => p.id === room?.property_id,
+                          )?.name
+                        }
+                      </>
+                    ) : (
+                      <>
+                        Hồ sơ:{" "}
+                        {documentTenants(data, "invoice", i.id)
+                          .map((t) => t.full_name)
+                          .join(", ")}
+                      </>
+                    )}
                   </button>
+                  <small>Kỳ {i.period.slice(0, 7)}</small>
                 </td>
                 <td>{money(i.total)}</td>
                 <td>{money(remaining)}</td>

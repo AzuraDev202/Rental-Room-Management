@@ -24,6 +24,6 @@ npm run test:ui
 
 Nếu dùng Chromium đã cài hệ thống, có thể đặt `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium`.
 
-Test chặn HTTP tới domain Supabase giả và thực thi query/RPC trên PostgreSQL trong bộ nhớ với migration thật. Xác nhận đăng nhập, workspace trống, căn hộ/giá thuê, phòng, đơn giá, lời mời, hồ sơ, hợp đồng, hóa đơn, thanh toán một phần, dữ liệu sau reload, bố cục mobile và UI viewer. Test Auth và Storage HTTP dùng mô phỏng; không chứng minh việc gửi email hoặc tải tệp trên cloud thật. Ảnh kiểm tra được ghi tạm vào `/tmp`, không đưa dữ liệu fixture vào ứng dụng.
+Test chặn HTTP tới domain Supabase giả và thực thi query/RPC trên PostgreSQL trong bộ nhớ với migration thật. Xác nhận đăng nhập, workspace trống, căn hộ/giá thuê, phòng, đơn giá, lời mời, hồ sơ, hợp đồng, hóa đơn, thanh toán một phần, dữ liệu sau reload, bố cục mobile, UI viewer, chuyển đi từng người trong phòng chung, lịch sử chứng từ và ngăn người mới nhận chứng từ cũ. Test Auth và Storage HTTP dùng mô phỏng; không chứng minh việc gửi email hoặc tải tệp trên cloud thật. Ảnh kiểm tra được ghi tạm vào `/tmp`, không đưa dữ liệu fixture vào ứng dụng.
 
 Dừng server test sau khi hoàn thành, bỏ các biến test và build lại cho môi trường thật. Dữ liệu fixture chỉ tồn tại trong bộ nhớ tiến trình kiểm thử.

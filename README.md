@@ -5,7 +5,7 @@
 ## 1. Tạo và cấu hình Supabase
 
 1. Tạo dự án tại https://supabase.com/dashboard. Chọn vùng gần Việt Nam và lưu mật khẩu database trong trình quản lý mật khẩu.
-2. Mở **SQL Editor**, chạy lần lượt `supabase/migrations/202610080001_hh_home.sql` rồi `supabase/migrations/202610080002_property_service_rates.sql` và `supabase/migrations/202610080003_delete_property.sql`, mỗi file một lần trên dự án mới. Migration tạo bảng, RPC, RLS và bucket `contracts` riêng tư; không tạo dữ liệu căn hộ/người thuê/hóa đơn.
+2. Mở **SQL Editor**, chạy lần lượt `supabase/migrations/202610080001_hh_home.sql` rồi `supabase/migrations/202610080002_property_service_rates.sql` rồi `supabase/migrations/202610080003_delete_property.sql` và `supabase/migrations/202610080004_tenant_document_history.sql`, mỗi file một lần trên dự án mới. Migration tạo bảng, RPC, RLS và bucket `contracts` riêng tư; không tạo dữ liệu căn hộ/người thuê/hóa đơn.
 3. Trong **Authentication → Providers → Email**, bật đăng ký email/password và **Confirm email**. Thiết lập mật khẩu tối thiểu 8 ký tự. Với môi trường production, cấu hình SMTP để gửi email xác nhận và đặt lại mật khẩu ổn định.
 4. Trong **Authentication → URL Configuration**, đặt Site URL theo domain triển khai và thêm redirect URL cho domain đó. Khi chạy local, thêm `http://localhost:3000` và `http://localhost:3000/**`. Production dùng domain HTTPS cụ thể, không dùng wildcard rộng.
 5. Lấy Project URL và **publishable key hoặc anon key** từ Project Settings → API. Chỉ hai giá trị công khai này được dùng trong frontend. Không dùng `service_role` hoặc secret key.
@@ -82,3 +82,11 @@ Migration mới tạo đơn giá riêng cho từng căn hộ, sao chép bộ đ�
 Cập nhật database đã có: chạy **nội dung** [202610080003_delete_property.sql](supabase/migrations/202610080003_delete_property.sql) một lần sau hai migration trước. Không chạy lại các migration đã áp dụng.
 
 Quản trị viên/Quản lý mở trang chi tiết căn hộ → **Xóa căn hộ**, nhập chính xác tên căn hộ và xác nhận. Căn hộ chưa có hồ sơ người thuê, hợp đồng, tệp hợp đồng hoặc hóa đơn có thể xóa cùng các phòng trống và đơn giá, trong một giao dịch. Căn hộ đã có dữ liệu nghiệp vụ bị chặn xóa để giữ lịch sử; không xóa hợp đồng/thanh toán qua chức năng này. Vai trò Chỉ xem không có quyền xóa. Có thể hủy trước khi xác nhận; sau khi xóa thành công không thể hoàn tác bằng ứng dụng.
+
+## Lịch sử người thuê sau khi chuyển đi
+
+Chạy **nội dung** [202610080004_tenant_document_history.sql](supabase/migrations/202610080004_tenant_document_history.sql) một lần sau ba migration trước. Không chạy lại file đã áp dụng. Sau đó cập nhật mã, khởi động lại ứng dụng.
+
+Mở hồ sơ người thuê → **Ghi nhận chuyển đi**. Đến ngày chuyển đi, người này không còn trong danh sách đang ở của phòng; xem lại ở **Người thuê → Đã chuyển đi → Chi tiết**, gồm hợp đồng, hóa đơn, lịch sử thanh toán và công nợ còn lại. Nếu còn người liên quan đang ở, chứng từ chung vẫn hiển thị trong phòng. Khi tất cả người liên quan đã đi, chứng từ chỉ còn trong hồ sơ lịch sử và danh sách tài chính tổng hợp. Người thuê mới không tự nhận chứng từ cũ.
+
+Migration tự liên kết tài liệu hiện có dựa trên phòng, thời gian thuê và thời điểm tạo tài liệu. Với tài liệu cũ chưa xác định được người liên quan, dùng **Gán người thuê** ở hợp đồng hoặc chi tiết hóa đơn; hồ sơ đã gán được giữ lại. Các liên kết này không nhân bản số tiền: hóa đơn chung vẫn có một công nợ và một lịch sử thanh toán, không chia nợ theo đầu người. Tệp gốc, doanh thu và thanh toán được giữ nguyên. Hồ sơ đã có chứng từ không được đổi phòng/ngày vào ở; đợt ở đã kết thúc không được mở lại.

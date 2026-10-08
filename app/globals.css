@@ -2152,3 +2152,40 @@ select:focus {
     font-size: 8px;
   }
 }
+.tenant-invoice-history {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+.tenant-invoice-history > div {
+  flex: 1;
+  min-width: 160px;
+}
+.tenant-invoice-history b {
+  font-size: 11px;
+}
+.tenant-invoice-history small {
+  display: block;
+  font-size: 10px;
+  color: var(--muted);
+  margin-top: 7px;
+}
+.owner-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 0;
+}
+.owner-checkbox input {
+  width: 17px;
+  height: 17px;
+  margin: 0;
+}
+.owner-checkbox small {
+  display: block;
+  margin-top: 5px;
+  color: var(--muted);
+}

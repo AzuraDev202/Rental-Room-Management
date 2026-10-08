@@ -60,6 +60,12 @@ test("migration, authorization and billing integration", async (t) => {
       "utf8",
     ),
   );
+  await db.exec(
+    readFileSync(
+      "supabase/migrations/202610080004_tenant_document_history.sql",
+      "utf8",
+    ),
+  );
   await t.test("fresh database contains no example business data", async () => {
     for (const table of [
       "organizations",
@@ -588,6 +594,210 @@ test("migration, authorization and billing integration", async (t) => {
         `insert into storage.objects(bucket_id,name) values('contracts',$1)`,
         [path],
         /row-level security/,
+      );
+    },
+  );
+  await t.test(
+    "shared document history survives departures and never transfers to newcomers",
+    async () => {
+      await as(users.owner);
+      const prop = (
+        await query<{ id: string }>(
+          `select public.create_property($1,'Archive tests','Address',0,1) as id`,
+          [org],
+        )
+      )[0].id;
+      const archiveRoom = (
+        await query<{ id: string }>(
+          `select id from rooms where property_id=$1`,
+          [prop],
+        )
+      )[0].id;
+      await db.query(
+        `insert into property_service_rates(property_id,organization_id,electricity,water,trash,wifi,laundry) values($1,$2,1000,5000,0,0,0)`,
+        [prop, org],
+      );
+      const participants = await query<{ id: string }>(
+        `insert into tenants(organization_id,room_id,full_name,gender,birth_date,identity_number,phone,move_in) values($1,$2,'Archive A','Nam','1990-01-01','123456789001','0901234567','2000-01-01'),($1,$2,'Archive B','Nữ','1990-01-01','123456789002','0901234568','2000-01-01') returning id`,
+        [org, archiveRoom],
+      );
+      const bill = (
+        await query<{ id: string }>(
+          `select public.create_invoice($1,$2,'2020-01-01','2020-01-05',0,10,0,1) as id`,
+          [org, archiveRoom],
+        )
+      )[0].id;
+      const path = org + "/" + archiveRoom + "/archive.pdf";
+      await db.query(
+        `insert into storage.objects(bucket_id,name) values('contracts',$1)`,
+        [path],
+      );
+      const contract = (
+        await query<{ id: string }>(
+          `insert into contracts(organization_id,room_id,file_name,storage_path,starts_on,ends_on) values($1,$2,'archive.pdf',$3,'2000-01-01','2099-01-01') returning id`,
+          [org, archiveRoom, path],
+        )
+      )[0].id;
+      assert.equal(
+        (
+          await query(`select * from invoice_tenants where invoice_id=$1`, [
+            bill,
+          ])
+        ).length,
+        2,
+      );
+      assert.equal(
+        (
+          await query(`select * from contract_tenants where contract_id=$1`, [
+            contract,
+          ])
+        ).length,
+        2,
+      );
+      await db.query(`select public.record_payment($1,$2,1000)`, [org, bill]);
+      await db.query(`update tenants set move_out='2020-02-01' where id=$1`, [
+        participants[0].id,
+      ]);
+      assert.equal(
+        (
+          await query(
+            `select 1 from invoice_tenants l join tenants t on t.id=l.tenant_id where l.invoice_id=$1 and t.move_out is null`,
+            [bill],
+          )
+        ).length,
+        1,
+      );
+      await db.query(`update tenants set move_out='2020-02-01' where id=$1`, [
+        participants[1].id,
+      ]);
+      const newcomer = (
+        await query<{ id: string }>(
+          `insert into tenants(organization_id,room_id,full_name,gender,birth_date,identity_number,phone,move_in) values($1,$2,'New occupant','Nam','1990-01-01','123456789003','0901234569','2021-01-01') returning id`,
+          [org, archiveRoom],
+        )
+      )[0].id;
+      assert.equal(
+        (
+          await query(`select * from invoice_tenants where tenant_id=$1`, [
+            newcomer,
+          ])
+        ).length,
+        0,
+      );
+      assert.equal(
+        (
+          await query(`select * from contract_tenants where tenant_id=$1`, [
+            newcomer,
+          ])
+        ).length,
+        0,
+      );
+      for (const participant of participants) {
+        assert.equal(
+          (
+            await query(`select * from invoice_tenants where tenant_id=$1`, [
+              participant.id,
+            ])
+          ).length,
+          1,
+        );
+        assert.equal(
+          (
+            await query(`select * from contract_tenants where tenant_id=$1`, [
+              participant.id,
+            ])
+          ).length,
+          1,
+        );
+        await reject(
+          `update tenants set move_out=null where id=$1`,
+          [participant.id],
+          /đợt ở đã kết thúc/,
+        );
+        await reject(
+          `update tenants set room_id=$1 where id=$2`,
+          [room, participant.id],
+          /đã có hợp đồng/,
+        );
+      }
+      assert.equal(
+        (await query(`select * from payments where invoice_id=$1`, [bill]))
+          .length,
+        1,
+      );
+      assert.equal(
+        (await query(`select * from storage.objects where name=$1`, [path]))
+          .length,
+        1,
+      );
+      await reject(
+        `delete from invoice_tenants where invoice_id=$1`,
+        [bill],
+        /permission denied/,
+      );
+      await reject(
+        `select public.link_tenant_document($1,'invoice',$2,array[gen_random_uuid()])`,
+        [org, bill],
+        /đúng phòng/,
+      );
+      const wrongRoomTenant = (
+        await query<{ id: string }>(
+          `insert into tenants(organization_id,room_id,full_name,gender,birth_date,identity_number,phone,move_in) values($1,$2,'Correction Tenant','Nam','1990-01-01','123456789004','0901234567','2021-01-01') returning id`,
+          [org, room],
+        )
+      )[0].id;
+      await reject(
+        `select public.link_tenant_document($1,'contract',$2,array[$3::uuid])`,
+        [org, contract, wrongRoomTenant],
+        /đúng phòng/,
+      );
+      await as(users.viewer);
+      assert.equal(
+        (
+          await query(`select * from invoice_tenants where invoice_id=$1`, [
+            bill,
+          ])
+        ).length,
+        2,
+      );
+      await reject(
+        `select public.link_tenant_document($1,'invoice',$2,array[$3::uuid])`,
+        [org, bill, newcomer],
+        /không có quyền/,
+      );
+      await as(users.outsider);
+      assert.equal(
+        (
+          await query(`select * from invoice_tenants where invoice_id=$1`, [
+            bill,
+          ])
+        ).length,
+        0,
+      );
+      assert.equal(
+        (
+          await query(`select * from contract_tenants where contract_id=$1`, [
+            contract,
+          ])
+        ).length,
+        0,
+      );
+      await as(users.manager);
+      await db.query(
+        `select public.link_tenant_document($1,'invoice',$2,array[$3::uuid])`,
+        [org, invoice, wrongRoomTenant],
+      );
+      await db.query(
+        `select public.link_tenant_document($1,'invoice',$2,array[$3::uuid])`,
+        [org, invoice, wrongRoomTenant],
+      );
+      assert.equal(
+        (
+          await query(`select * from invoice_tenants where invoice_id=$1`, [
+            invoice,
+          ])
+        ).length,
+        1,
       );
     },
   );

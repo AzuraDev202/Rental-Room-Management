@@ -6,6 +6,8 @@ import {
   revenueSeries,
   localDay,
   tenantStatus,
+  documentTenants,
+  isCurrentDocument,
 } from "../lib/business";
 import { propertySchema, tenantSchema, invoiceSchema } from "../lib/forms";
 import type { Invoice, Payment } from "../lib/types";
@@ -135,5 +137,54 @@ test("occupancy follows actual move-in and move-out dates", () => {
       "2026-10-08",
     ),
     "Đã chuyển đi",
+  );
+});
+
+test("shared documents stay current until all original tenants leave; newcomer inherits none", () => {
+  const departed = {
+    id: "old",
+    room_id: "room",
+    move_in: "2000-01-01",
+    move_out: "2001-01-01",
+  };
+  const active: {
+    id: string;
+    room_id: string;
+    move_in: string;
+    move_out: string | null;
+  } = {
+    id: "peer",
+    room_id: "room",
+    move_in: "2000-01-01",
+    move_out: null,
+  };
+  const newcomer = {
+    id: "new",
+    room_id: "room",
+    move_in: "2002-01-01",
+    move_out: null,
+  };
+  const data = {
+    tenants: [departed, active, newcomer],
+    invoiceTenants: [
+      { invoice_id: "invoice", tenant_id: "old" },
+      { invoice_id: "invoice", tenant_id: "peer" },
+    ],
+    contractTenants: [
+      { contract_id: "contract", tenant_id: "old" },
+      { contract_id: "contract", tenant_id: "peer" },
+    ],
+  } as unknown as import("../lib/types").Data;
+  assert.equal(isCurrentDocument(data, "contract", "contract"), true);
+  assert.deepEqual(
+    documentTenants(data, "invoice", "invoice").map((t) => t.id),
+    ["old", "peer"],
+  );
+  active.move_out = "2001-01-01";
+  assert.equal(isCurrentDocument(data, "contract", "contract"), false);
+  assert.equal(isCurrentDocument(data, "invoice", "invoice"), false);
+  assert.equal(
+    documentTenants(data, "invoice", "invoice").some((t) => t.id === "new"),
+    false,
   );
 });
