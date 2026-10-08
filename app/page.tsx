@@ -30,6 +30,7 @@ import {
   LoaderCircle,
 } from "lucide-react";
 import { supabase } from "../lib/supabase";
+import { ServiceHistory } from "../components/service-history";
 import { TenantDirectory } from "../components/tenant-directory";
 import { Auth, Recovery } from "../components/auth";
 import { DataForm, type Field } from "../components/data-form";
@@ -1116,7 +1117,10 @@ function Workspace({ session }: { session: Session }) {
                         />
                       )}
                     </section>
-                    <section className="panel contracts-panel">
+                    <section
+                      className="panel contracts-panel"
+                      aria-label="Hóa đơn người đang ở"
+                    >
                       <div className="panel-heading">
                         <div>
                           <h2>Hóa đơn người đang ở</h2>
@@ -1197,6 +1201,15 @@ function Workspace({ session }: { session: Session }) {
                         />
                       )}
                     </section>
+                    <ServiceHistory
+                      data={data}
+                      roomId={room.id}
+                      detail={(i) => {
+                        setTenant(null);
+                        setInvoice(i);
+                        setModal("invoice-detail");
+                      }}
+                    />
                   </div>
                   <section className="panel bill">
                     <div className="panel-heading">
@@ -1266,39 +1279,49 @@ function Workspace({ session }: { session: Session }) {
                 />
               )}
               {page === "invoices" && (
-                <section className="panel">
-                  <div className="panel-heading">
-                    <div>
-                      <h2>Hóa đơn kỳ {period}</h2>
-                      <p>
-                        Tiền thực thu được thống kê theo ngày ghi nhận thanh
-                        toán.
-                      </p>
+                <>
+                  <section className="panel">
+                    <div className="panel-heading">
+                      <div>
+                        <h2>Hóa đơn kỳ {period}</h2>
+                        <p>
+                          Tiền thực thu được thống kê theo ngày ghi nhận thanh
+                          toán.
+                        </p>
+                      </div>
+                      <button
+                        className="secondary"
+                        disabled={!outstanding.length}
+                        onClick={() => exportInvoices(outstanding, data)}
+                      >
+                        <Download size={16} /> Xuất CSV
+                      </button>
                     </div>
-                    <button
-                      className="secondary"
-                      disabled={!outstanding.length}
-                      onClick={() => exportInvoices(outstanding, data)}
-                    >
-                      <Download size={16} /> Xuất CSV
-                    </button>
-                  </div>
-                  <Invoices
-                    invoices={outstanding}
+                    <Invoices
+                      invoices={outstanding}
+                      data={data}
+                      canWrite={canWrite}
+                      pay={(i) => {
+                        setTenant(null);
+                        setInvoice(i);
+                        setModal("payment");
+                      }}
+                      detail={(i) => {
+                        setTenant(null);
+                        setInvoice(i);
+                        setModal("invoice-detail");
+                      }}
+                    />
+                  </section>
+                  <ServiceHistory
                     data={data}
-                    canWrite={canWrite}
-                    pay={(i) => {
-                      setTenant(null);
-                      setInvoice(i);
-                      setModal("payment");
-                    }}
                     detail={(i) => {
                       setTenant(null);
                       setInvoice(i);
                       setModal("invoice-detail");
                     }}
                   />
-                </section>
+                </>
               )}
               {page === "settings" && (
                 <>
