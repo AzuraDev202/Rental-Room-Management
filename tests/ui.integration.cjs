@@ -369,6 +369,101 @@ const uid = "00000000-0000-0000-0000-000000000001",
     .waitFor({ state: "hidden" });
   await page.getByText("test-contract.pdf", { exact: true }).waitFor();
   console.log("Tenant and contract saved");
+  const groupingProperty = (
+    await db.query(
+      "select id,organization_id from properties where name='Test Building'",
+    )
+  ).rows[0];
+  const groupingRoom = (
+    await db.query("select id from rooms where property_id=$1", [
+      groupingProperty.id,
+    ])
+  ).rows[0].id;
+  await db.query(
+    `insert into tenants(organization_id,room_id,full_name,gender,birth_date,identity_number,phone,move_in,move_out) values($1,$2,'Past Tenant','Nam','1998-01-01','012345678902','0909876543','2000-01-01','2000-02-01'),($1,$2,'Future Tenant','Nữ','1998-01-01','012345678903','0901234568','2099-01-01',null)`,
+    [groupingProperty.organization_id, groupingRoom],
+  );
+  const groupPropertyId = (
+    await db.query(
+      `select public.create_property($1,'Grouping Building','Group Address',0,1) as id`,
+      [groupingProperty.organization_id],
+    )
+  ).rows[0].id;
+  const groupRoomId = (
+    await db.query("select id from rooms where property_id=$1", [
+      groupPropertyId,
+    ])
+  ).rows[0].id;
+  await db.query(
+    `insert into tenants(organization_id,room_id,full_name,gender,birth_date,identity_number,phone,move_in) values($1,$2,'Group Tenant','Nam','1998-01-01','012345678904','0901234569','2000-01-01')`,
+    [groupingProperty.organization_id, groupRoomId],
+  );
+  await page.reload({ waitUntil: "networkidle" });
+  await page.getByRole("button", { name: "Người thuê", exact: true }).click();
+  await page.getByText("Group Tenant", { exact: true }).waitFor();
+  assert.equal(
+    await page.getByLabel("Lọc trạng thái người thuê").inputValue(),
+    "Đang ở",
+  );
+  assert.equal(await page.getByText("Past Tenant", { exact: true }).count(), 0);
+  assert.equal(
+    await page.getByText("Future Tenant", { exact: true }).count(),
+    0,
+  );
+  await page
+    .getByRole("region", { name: "Test Building · Room 101", exact: true })
+    .getByText("Test Tenant", { exact: true })
+    .waitFor();
+  await page
+    .getByRole("region", { name: "Grouping Building · Phòng 1", exact: true })
+    .getByText("Group Tenant", { exact: true })
+    .waitFor();
+  await page
+    .getByLabel("Lọc căn hộ người thuê")
+    .selectOption(groupingProperty.id);
+  assert.equal(
+    await page.getByText("Group Tenant", { exact: true }).count(),
+    0,
+  );
+  await page.getByLabel("Lọc phòng người thuê").selectOption(groupingRoom);
+  await page
+    .getByLabel("Lọc trạng thái người thuê")
+    .selectOption("Đã chuyển đi");
+  await page.getByText("Past Tenant", { exact: true }).waitFor();
+  assert.equal(await page.getByText("Test Tenant", { exact: true }).count(), 0);
+  await page.getByLabel("Lọc trạng thái người thuê").selectOption("Sắp vào ở");
+  await page.getByText("Future Tenant", { exact: true }).waitFor();
+  await page.getByLabel("Lọc trạng thái người thuê").selectOption("Tất cả");
+  await page.getByLabel("Tìm người thuê").fill("090987");
+  await page.getByText("Past Tenant", { exact: true }).waitFor();
+  assert.equal(
+    await page.getByText("Future Tenant", { exact: true }).count(),
+    0,
+  );
+  await page.getByLabel("Tìm người thuê").fill("no-matching-tenant");
+  await page
+    .getByRole("heading", { name: "Không có người thuê phù hợp" })
+    .waitFor();
+  await page.getByLabel("Tìm người thuê").fill("");
+  await page.getByLabel("Lọc căn hộ người thuê").selectOption(groupPropertyId);
+  assert.equal(await page.getByLabel("Lọc phòng người thuê").inputValue(), "");
+  await page.getByLabel("Lọc trạng thái người thuê").selectOption("Đang ở");
+  await page.getByText("Group Tenant", { exact: true }).waitFor();
+  await page.setViewportSize({ width: 390, height: 844 });
+  assert.equal(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth > innerWidth,
+    ),
+    false,
+  );
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.getByRole("button", { name: /^Căn hộ/ }).click();
+  await page
+    .getByRole("button", { name: /Test Building Test Address/ })
+    .click();
+  await page.getByRole("button", { name: /Room 101 1 người đang ở/ }).click();
+  console.log("Tenant status filters and property/room grouping passed");
+
   for (const [label, v] of [
     ["Điện · chỉ số cũ", "1240"],
     ["Điện · chỉ số mới (3.500 ₫/kWh)", "1325"],

@@ -30,6 +30,7 @@ import {
   LoaderCircle,
 } from "lucide-react";
 import { supabase } from "../lib/supabase";
+import { TenantDirectory } from "../components/tenant-directory";
 import { Auth, Recovery } from "../components/auth";
 import { DataForm, type Field } from "../components/data-form";
 import dynamic from "next/dynamic";
@@ -1145,103 +1146,18 @@ function Workspace({ session }: { session: Session }) {
                 </div>
               )}
               {page === "tenants" && (
-                <section className="panel">
-                  <div className="panel-heading">
-                    <h2>Danh sách người thuê</h2>
-                    <div className="heading-actions">
-                      <label className="search">
-                        <Search size={17} />
-                        <input
-                          placeholder="Tìm người thuê..."
-                          value={search}
-                          onChange={(e) => setSearch(e.target.value)}
-                        />
-                      </label>
-                      {canWrite && (
-                        <button
-                          className="secondary"
-                          disabled={!data.rooms.length}
-                          onClick={() => {
-                            setTenant(null);
-                            setModal("tenant-add");
-                          }}
-                        >
-                          <Plus size={15} /> Thêm người thuê
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                  {data.tenants.length ? (
-                    <div className="table-wrap">
-                      <table>
-                        <thead>
-                          <tr>
-                            <th>NGƯỜI THUÊ</th>
-                            <th>PHÒNG / CĂN HỘ</th>
-                            <th>SỐ ĐIỆN THOẠI</th>
-                            <th>TRẠNG THÁI</th>
-                            <th />
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {data.tenants
-                            .filter((t) =>
-                              (t.full_name + " " + t.phone)
-                                .toLowerCase()
-                                .includes(search.toLowerCase()),
-                            )
-                            .map((t) => {
-                              const r = data.rooms.find(
-                                (r) => r.id === t.room_id,
-                              );
-                              return (
-                                <tr key={t.id}>
-                                  <td>{t.full_name}</td>
-                                  <td>
-                                    {r?.name} ·{" "}
-                                    {
-                                      data.properties.find(
-                                        (p) => p.id === r?.property_id,
-                                      )?.name
-                                    }
-                                  </td>
-                                  <td>{t.phone}</td>
-                                  <td>
-                                    <span
-                                      className={
-                                        "status " +
-                                        (tenantStatus(t) !== "Đang ở"
-                                          ? "vacant"
-                                          : "")
-                                      }
-                                    >
-                                      {tenantStatus(t)}
-                                    </span>
-                                  </td>
-                                  <td>
-                                    <button
-                                      className="text-button"
-                                      onClick={() => {
-                                        setTenant(t);
-                                        setModal("tenant-detail");
-                                      }}
-                                    >
-                                      Chi tiết <ArrowRight size={14} />
-                                    </button>
-                                  </td>
-                                </tr>
-                              );
-                            })}
-                        </tbody>
-                      </table>
-                    </div>
-                  ) : (
-                    <Empty
-                      title="Chưa có người thuê"
-                      detail="Thêm căn hộ và phòng, sau đó nhập hồ sơ người thuê."
-                    />
-                  )}
-                </section>
+                <TenantDirectory
+                  data={data}
+                  canWrite={canWrite}
+                  add={() => {
+                    setTenant(null);
+                    setModal("tenant-add");
+                  }}
+                  detail={(t) => {
+                    setTenant(t);
+                    setModal("tenant-detail");
+                  }}
+                />
               )}
               {page === "invoices" && (
                 <section className="panel">
