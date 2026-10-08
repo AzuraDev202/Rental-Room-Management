@@ -2462,3 +2462,19 @@ header {
   top: 0;
   z-index: 10;
 }
+/* Safari auto-zooms focused controls below 16px; auth rules must not override this. */
+@media (max-width: 1024px), (pointer: coarse) {
+  input:not([type="checkbox"]):not([type="radio"]),
+  select,
+  textarea,
+  .auth-card form input,
+  .data-form input,
+  .data-form select,
+  .period input,
+  .period select,
+  .workspace select,
+  .file-label input,
+  .chart-filter {
+    font-size: 16px;
+  }
+}

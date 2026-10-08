@@ -285,6 +285,33 @@ const uid = "00000000-0000-0000-0000-000000000001",
     console.error("Browser error", e.stack || e.message);
   });
   await page.goto("http://localhost:3001", { waitUntil: "networkidle" });
+  // Prevent Safari focus zoom: verify the final cascaded size on auth controls.
+  for (const width of [320, 390, 430, 844]) {
+    await page.setViewportSize({ width, height: 844 });
+    for (const label of ["Email", "Mật khẩu"]) {
+      const input = page.getByLabel(label, { exact: true });
+      await input.focus();
+      assert.ok(
+        Number.parseFloat(
+          await input.evaluate((el) => getComputedStyle(el).fontSize),
+        ) >= 16,
+        `auth ${label} at ${width}`,
+      );
+    }
+    assert.equal(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth > innerWidth,
+      ),
+      false,
+    );
+  }
+  const viewportMeta = await page
+    .locator('meta[name="viewport"]')
+    .getAttribute("content");
+  assert.match(viewportMeta, /initial-scale=1/);
+  assert.doesNotMatch(viewportMeta, /user-scalable=no|maximum-scale=1/);
+  await page.setViewportSize({ width: 1440, height: 1000 });
+
   await page.getByLabel("Email", { exact: true }).fill("owner@test.invalid");
   await page.getByLabel("Mật khẩu", { exact: true }).fill("password123");
   await page.getByRole("button", { name: "Đăng nhập", exact: true }).click();
