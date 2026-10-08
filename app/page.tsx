@@ -31,7 +31,6 @@ import {
 } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { TenantArrivalForm } from "../components/tenant-arrival-form";
-import { ServiceHistory } from "../components/service-history";
 import { TenantDirectory } from "../components/tenant-directory";
 import { Auth, Recovery } from "../components/auth";
 import { DataForm, type Field } from "../components/data-form";
@@ -1276,15 +1275,6 @@ function Workspace({ session }: { session: Session }) {
                           </div>
                         ))}
                     </section>
-                    <ServiceHistory
-                      data={data}
-                      roomId={room.id}
-                      detail={(i) => {
-                        setTenant(null);
-                        setInvoice(i);
-                        setModal("invoice-detail");
-                      }}
-                    />
                   </div>
                   <section className="panel bill">
                     <div className="panel-heading">
@@ -1463,14 +1453,6 @@ function Workspace({ session }: { session: Session }) {
                       }}
                     />
                   </section>
-                  <ServiceHistory
-                    data={data}
-                    detail={(i) => {
-                      setTenant(null);
-                      setInvoice(i);
-                      setModal("invoice-detail");
-                    }}
-                  />
                 </>
               )}
               {page === "settings" && (

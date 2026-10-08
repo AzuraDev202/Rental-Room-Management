@@ -531,34 +531,7 @@ const uid = "00000000-0000-0000-0000-000000000001",
     .getByRole("heading", { name: "Ghi nhận thu tiền" })
     .waitFor({ state: "hidden" });
   await page.getByText("3.367.500 ₫", { exact: true }).waitFor();
-  const history = page.getByRole("region", {
-    name: "Lịch sử sử dụng dịch vụ",
-    exact: true,
-  });
-  await history.getByText("85 kWh × 3.500 ₫", { exact: true }).waitFor();
-  await history.getByText("6 m³ × 20.000 ₫", { exact: true }).waitFor();
-  await history.getByText("Rác: 30.000 ₫", { exact: true }).waitFor();
-  await history.getByText("Wifi: 70.000 ₫", { exact: true }).waitFor();
-  await history.getByText("Máy giặt: 50.000 ₫", { exact: true }).waitFor();
-  await page
-    .getByLabel("Căn hộ lịch sử dịch vụ")
-    .selectOption(groupingProperty.id);
-  await page.getByLabel("Phòng lịch sử dịch vụ").selectOption(groupingRoom);
-  const historyMonth = (
-    await db.query(
-      "select to_char(period,'YYYY-MM') as period from invoices where room_id=$1",
-      [groupingRoom],
-    )
-  ).rows[0].period.slice(0, 7);
-  await page.getByLabel("Tháng lịch sử dịch vụ").selectOption(historyMonth);
-  await history.getByRole("button", { name: "Chi tiết", exact: true }).click();
-  await page
-    .getByRole("heading", { name: "Hóa đơn · " + historyMonth })
-    .waitFor();
-  await page.getByRole("button", { name: "Đóng" }).click();
-  await page.getByLabel("Căn hộ lịch sử dịch vụ").selectOption(groupPropertyId);
-  assert.equal(await page.getByLabel("Phòng lịch sử dịch vụ").inputValue(), "");
-  await history.getByText(/Chưa có hóa đơn cho lựa chọn này/).waitFor();
+  assert.equal(await page.getByRole("region", { name: "Lịch sử sử dụng dịch vụ", exact: true }).count(), 0);
   await page.getByRole("button", { name: "Tổng quan", exact: true }).click();
   await page.getByText("1.000.000 ₫", { exact: true }).first().waitFor();
   await page.reload({ waitUntil: "networkidle" });
@@ -962,15 +935,7 @@ const uid = "00000000-0000-0000-0000-000000000001",
   );
   await page.getByRole("button", { name: "Mở menu" }).click();
   await page.getByRole("button", { name: "Hóa đơn", exact: true }).click();
-  await page.getByLabel("Căn hộ lịch sử dịch vụ").selectOption(archiveProperty);
-  await page.getByLabel("Phòng lịch sử dịch vụ").selectOption(archiveRoom);
-  await page.getByLabel("Tháng lịch sử dịch vụ").selectOption("2020-01");
-  await history.getByText("10 kWh × 1.000 ₫", { exact: true }).waitFor();
-  await history.getByText("1 m³ × 5.000 ₫", { exact: true }).waitFor();
-  await history.getByText("15.000 ₫", { exact: true }).waitFor();
-  await history.getByRole("button", { name: "Chi tiết", exact: true }).click();
-  await page.getByRole("heading", { name: "Hóa đơn · 2020-01" }).waitFor();
-  await page.getByRole("button", { name: "Đóng" }).click();
+  assert.equal(await page.getByRole("region", { name: "Lịch sử sử dụng dịch vụ", exact: true }).count(), 0);
   assert.equal(await page.getByLabel("Ảnh điện", { exact: true }).count(), 0);
   await page.setViewportSize({ width: 390, height: 844 });
   assert.equal(
@@ -1137,10 +1102,8 @@ const uid = "00000000-0000-0000-0000-000000000001",
     .getByLabel("Nước · chỉ số mới (5.000 ₫/m³)", { exact: true })
     .fill("3");
   await page.getByRole("button", { name: "Lập hóa đơn", exact: true }).click();
-  await page
-    .getByRole("region", { name: "Lịch sử sử dụng dịch vụ", exact: true })
-    .getByText("3 kWh × 1.000 ₫", { exact: true })
-    .waitFor();
+  await page.getByText("Đã lập hóa đơn", { exact: true }).waitFor();
+  assert.equal(await page.getByRole("region", { name: "Lịch sử sử dụng dịch vụ", exact: true }).count(), 0);
   const newArrivalBill = (
     await db.query(`select * from invoices where billing_cycle_id=$1`, [
       newArrival.billing_cycle_id,
@@ -1165,7 +1128,7 @@ const uid = "00000000-0000-0000-0000-000000000001",
   assert.equal(periodBills.length, 2);
   assert.deepEqual(errors, []);
   console.log(
-    "PASS: login, empty database, workspace, property rent, room rent, service rates, invitation, tenant, contract upload, invoice, partial payment, reload persistence, mobile layout, viewer permissions, shared document archive after departure, newcomer isolation, vacant property deletion with retained tenant/payment history, monthly service history with property/room/month filters, vacancy states and move-in baselines, shared occupancy without reset, same-month separate cycles. Backend = local PostgreSQL with real migration; Auth/Storage HTTP simulated.",
+    "PASS: login, empty database, workspace, property rent, room rent, service rates, invitation, tenant, contract upload, invoice, partial payment, reload persistence, mobile layout, viewer permissions, shared document archive after departure, newcomer isolation, vacant property deletion with retained tenant/payment history, service history panel removed, vacancy states and move-in baselines, shared occupancy without reset, same-month separate cycles. Backend = local PostgreSQL with real migration; Auth/Storage HTTP simulated.",
   );
   await browser.close();
   await db.close();

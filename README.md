@@ -93,12 +93,6 @@ Mở hồ sơ người thuê → **Ghi nhận chuyển đi**. Đến ngày chuy�
 
 Migration tự liên kết tài liệu hiện có dựa trên phòng, thời gian thuê và thời điểm tạo tài liệu. Với tài liệu cũ chưa xác định được người liên quan, dùng **Gán người thuê** ở hợp đồng hoặc chi tiết hóa đơn; hồ sơ đã gán được giữ lại. Các liên kết này không nhân bản số tiền: hóa đơn chung vẫn có một công nợ và một lịch sử thanh toán, không chia nợ theo đầu người. Tệp gốc, doanh thu và thanh toán được giữ nguyên. Hồ sơ đã có chứng từ không được đổi phòng/ngày vào ở; đợt ở đã kết thúc không được mở lại.
 
-## Lịch sử sử dụng dịch vụ
-
-Vào **Hóa đơn → Lịch sử sử dụng dịch vụ**, lọc căn hộ, phòng và tháng (hoặc tất cả tháng). Mỗi kỳ hiển thị chỉ số điện/nước cũ → mới, lượng tiêu thụ kWh/m³, đơn giá tại thời điểm lập, phí rác/wifi/máy giặt theo tháng và tổng dịch vụ chưa gồm tiền phòng. **Chi tiết** mở hóa đơn và lịch sử thanh toán. Trang chi tiết phòng cũng có lịch sử riêng của phòng.
-
-Dữ liệu lấy từ hóa đơn đã chốt, giữ nguyên khi đổi đơn giá, người thuê chuyển đi hoặc căn hộ đã xóa. Tháng chưa có hóa đơn chưa có số liệu để tổng kết; không tự tạo lịch sử giả. Không có tính năng tải/lưu ảnh điện nước. Lịch sử dịch vụ sử dụng dữ liệu hóa đơn có sẵn; chức năng mốc nhận phòng cần migration 006 bên dưới.
-
 ## Chỉ số nhận phòng và trạng thái phòng
 
 Chạy **nội dung** [202610080006_room_move_in_readings.sql](supabase/migrations/202610080006_room_move_in_readings.sql) một lần sau migration 005, rồi cập nhật ứng dụng.
