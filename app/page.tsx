@@ -30,6 +30,7 @@ import {
   LoaderCircle,
 } from "lucide-react";
 import { supabase } from "../lib/supabase";
+import { TenantArrivalForm } from "../components/tenant-arrival-form";
 import { ServiceHistory } from "../components/service-history";
 import { TenantDirectory } from "../components/tenant-directory";
 import { Auth, Recovery } from "../components/auth";
@@ -49,6 +50,7 @@ import {
   tenantSchema,
   ratesSchema,
   invoiceSchema,
+  initialReadingsSchema,
   paymentSchema,
   inviteSchema,
   workspaceSchema,
@@ -62,6 +64,7 @@ import {
   localDay,
   calculateBill,
   tenantStatus,
+  nextMonth,
   documentTenants,
   isCurrentDocument,
   revenueSeries,
@@ -75,6 +78,7 @@ import {
   type Room,
   type Tenant,
   type Invoice,
+  type BillingCycle,
   type Contract,
   type Role,
   type Rates,
@@ -224,7 +228,8 @@ function Workspace({ session }: { session: Session }) {
       id: string;
       roomId: string;
     } | null>(null),
-    [ownerIds, setOwnerIds] = useState<string[]>([]);
+    [ownerIds, setOwnerIds] = useState<string[]>([]),
+    [billingCycleId, setBillingCycleId] = useState("");
   const member =
     data.members.find((m) => m.user_id === session.user.id) ||
     memberships.find((m) => m.organization_id === org);
@@ -403,11 +408,33 @@ function Workspace({ session }: { session: Session }) {
   const roomRates = room
     ? data.rates.find((r) => r.property_id === room.property_id)
     : undefined;
-  const previous = room
-    ? data.invoices
-        .filter((i) => i.room_id === room.id)
-        .sort((a, b) => b.period.localeCompare(a.period))[0]
-    : null;
+  const roomCycles = room
+    ? data.billingCycles
+        .filter(
+          (c) =>
+            c.room_id === room.id &&
+            c.starts_on < nextMonth(period) &&
+            data.tenants.some(
+              (t) =>
+                t.billing_cycle_id === c.id &&
+                t.move_in < nextMonth(period) &&
+                (!t.move_out ||
+                  (t.move_out > period + "-01" && t.move_out > t.move_in)),
+            ),
+        )
+        .sort((a, b) => b.starts_on.localeCompare(a.starts_on))
+    : [];
+  const billingCycle =
+    roomCycles.find((c) => c.id === billingCycleId) || roomCycles[0];
+  const previous =
+    room && billingCycle
+      ? data.invoices
+          .filter(
+            (i) =>
+              i.room_id === room.id && i.billing_cycle_id === billingCycle.id,
+          )
+          .sort((a, b) => b.period.localeCompare(a.period))[0] || null
+      : null;
   const titles: Record<string, string> = {
     dashboard: "Tổng quan",
     properties: "Căn hộ của bạn",
@@ -420,7 +447,8 @@ function Workspace({ session }: { session: Session }) {
   const tenantStayLocked =
     tenant &&
     modal === "tenant-edit" &&
-    (data.invoiceTenants.some((l) => l.tenant_id === tenant.id) ||
+    (!!tenant.billing_cycle_id ||
+      data.invoiceTenants.some((l) => l.tenant_id === tenant.id) ||
       data.contractTenants.some((l) => l.tenant_id === tenant.id) ||
       data.properties.some(
         (p) =>
@@ -1032,9 +1060,7 @@ function Workspace({ session }: { session: Session }) {
                                 (!activeTenants(r.id).length ? "vacant" : "")
                               }
                             >
-                              {activeTenants(r.id).length
-                                ? "Đang thuê"
-                                : "Còn trống"}
+                              {activeTenants(r.id).length ? "Đang ở" : "Trống"}
                             </span>
                           </div>
                           <h2>{r.name}</h2>
@@ -1060,6 +1086,14 @@ function Workspace({ session }: { session: Session }) {
                         <div>
                           <h2>{room.name}</h2>
                           <p>Giá thuê: {money(room.monthly_rent)}/tháng</p>
+                          <span
+                            className={
+                              "status " +
+                              (!activeTenants(room.id).length ? "vacant" : "")
+                            }
+                          >
+                            {activeTenants(room.id).length ? "Đang ở" : "Trống"}
+                          </span>
                         </div>
                         {canWrite && (
                           <button
@@ -1201,6 +1235,47 @@ function Workspace({ session }: { session: Session }) {
                         />
                       )}
                     </section>
+                    <section className="panel" aria-label="Mốc nhận phòng">
+                      <div className="panel-heading">
+                        <div>
+                          <h2>Mốc điện / nước lúc nhận phòng</h2>
+                          <p>
+                            Mỗi lần phòng trống bắt đầu có người ở là một đợt
+                            thuê mới.
+                          </p>
+                        </div>
+                      </div>
+                      {data.billingCycles
+                        .filter(
+                          (c) =>
+                            c.room_id === room.id &&
+                            (data.tenants.some(
+                              (t) => t.billing_cycle_id === c.id,
+                            ) ||
+                              data.invoices.some(
+                                (i) => i.billing_cycle_id === c.id,
+                              )),
+                        )
+                        .sort((a, b) => b.starts_on.localeCompare(a.starts_on))
+                        .map((c) => (
+                          <div className="arrival-reading" key={c.id}>
+                            <b>
+                              {c.is_legacy ? "Lịch sử từ" : "Nhận phòng"}{" "}
+                              {c.starts_on}
+                            </b>
+                            <span>
+                              Điện:{" "}
+                              {c.electricity_initial === null
+                                ? "Chưa ghi"
+                                : c.electricity_initial + " kWh"}{" "}
+                              · Nước:{" "}
+                              {c.water_initial === null
+                                ? "Chưa ghi"
+                                : c.water_initial + " m³"}
+                            </span>
+                          </div>
+                        ))}
+                    </section>
                     <ServiceHistory
                       data={data}
                       roomId={room.id}
@@ -1219,19 +1294,88 @@ function Workspace({ session }: { session: Session }) {
                       </div>
                       <ReceiptText size={19} />
                     </div>
-                    {canWrite && roomRates && activeTenants(room.id).length ? (
+                    {roomCycles.length > 0 && (
+                      <label className="billing-cycle-picker">
+                        Đợt thuê
+                        <select
+                          aria-label="Đợt thuê lập hóa đơn"
+                          value={billingCycle?.id || ""}
+                          onChange={(e) => setBillingCycleId(e.target.value)}
+                        >
+                          {roomCycles.map((c) => (
+                            <option key={c.id} value={c.id}>
+                              Nhận phòng {c.starts_on}
+                              {c.is_legacy ? " · Lịch sử trước cập nhật" : ""}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    )}
+                    {canWrite &&
+                      billingCycle &&
+                      billingCycle.electricity_initial === null &&
+                      !previous && (
+                        <>
+                          <h3>Ghi chỉ số nhận phòng còn thiếu</h3>
+                          <DataForm
+                            schema={initialReadingsSchema}
+                            fields={[
+                              {
+                                name: "electricity_initial",
+                                label: "Điện · chỉ số lúc nhận phòng",
+                                type: "number",
+                                min: 0,
+                              },
+                              {
+                                name: "water_initial",
+                                label: "Nước · chỉ số lúc nhận phòng",
+                                type: "number",
+                                min: 0,
+                              },
+                            ]}
+                            defaults={{
+                              electricity_initial: "",
+                              water_initial: "",
+                            }}
+                            submit="Lưu mốc nhận phòng"
+                            onSubmit={(v) =>
+                              save(
+                                () =>
+                                  rpc("set_initial_room_readings", {
+                                    org,
+                                    target_cycle: billingCycle.id,
+                                    electricity: v.electricity_initial,
+                                    water: v.water_initial,
+                                  }),
+                                "Đã lưu mốc nhận phòng",
+                              )
+                            }
+                          />
+                        </>
+                      )}
+                    {canWrite &&
+                    roomRates &&
+                    billingCycle &&
+                    (previous || billingCycle.electricity_initial !== null) ? (
                       <InvoiceForm
-                        key={room.id + period + (previous?.id || "")}
+                        key={
+                          room.id +
+                          period +
+                          billingCycle?.id +
+                          (previous?.id || "")
+                        }
                         period={period}
                         previous={previous || null}
+                        baseline={billingCycle}
                         room={room}
                         rates={roomRates}
                         onSubmit={(v) =>
                           save(
                             () =>
-                              rpc("create_invoice", {
+                              rpc("create_cycle_invoice", {
                                 org,
                                 target_room: room.id,
+                                target_cycle: billingCycle!.id,
                                 invoice_period: String(v.period) + "-01",
                                 deadline: v.due_date,
                                 e_old: v.electricity_old,
@@ -1246,18 +1390,24 @@ function Workspace({ session }: { session: Session }) {
                     ) : (
                       <Empty
                         title={
-                          !activeTenants(room.id).length
-                            ? "Chưa có người đang ở"
-                            : canWrite
-                              ? "Chưa có đơn giá"
-                              : "Quyền chỉ xem"
+                          !billingCycle
+                            ? "Chưa có đợt thuê trong tháng"
+                            : billingCycle.electricity_initial === null &&
+                                !previous
+                              ? "Chưa có mốc nhận phòng"
+                              : canWrite
+                                ? "Chưa có đơn giá"
+                                : "Quyền chỉ xem"
                         }
                         detail={
-                          !activeTenants(room.id).length
-                            ? "Thêm người thuê mới trước khi lập hóa đơn cho đợt ở mới."
-                            : canWrite
-                              ? "Thiết lập đơn giá của căn hộ này trong Cài đặt trước khi lập hóa đơn."
-                              : "Bạn có thể xem hóa đơn tại trang Hóa đơn."
+                          !billingCycle
+                            ? "Chọn tháng có người ở hoặc thêm người thuê khi phòng trống nhận người mới."
+                            : billingCycle.electricity_initial === null &&
+                                !previous
+                              ? "Ghi mốc điện/nước trước khi lập hóa đơn đầu tiên của đợt thuê."
+                              : canWrite
+                                ? "Thiết lập đơn giá của căn hộ này trong Cài đặt trước khi lập hóa đơn."
+                                : "Bạn có thể xem hóa đơn tại trang Hóa đơn."
                         }
                       />
                     )}
@@ -1615,41 +1765,59 @@ function Workspace({ session }: { session: Session }) {
                     ? "Cập nhật người thuê"
                     : "Thêm người thuê"}
                 </h2>
-                <DataForm
-                  schema={tenantSchema}
-                  fields={tenantFields}
-                  defaults={
-                    tenant
-                      ? { ...tenant, email: tenant.email || "" }
-                      : {
-                          room_id: page === "room" ? roomId : "",
-                          full_name: "",
-                          gender: "",
-                          birth_date: "",
-                          identity_number: "",
-                          phone: "",
-                          email: "",
-                          move_in: localDay(),
-                        }
-                  }
-                  submit="Lưu người thuê"
-                  onSubmit={(v) =>
-                    save(
-                      () =>
-                        tenant
-                          ? update("tenants", tenant.id, org, {
-                              ...v,
-                              email: v.email || null,
-                            })
-                          : insert("tenants", {
-                              ...v,
-                              email: v.email || null,
-                              organization_id: org,
-                            }),
-                      "Đã lưu hồ sơ người thuê",
-                    )
-                  }
-                />
+                {modal === "tenant-add" ? (
+                  <TenantArrivalForm
+                    data={data}
+                    fields={tenantFields}
+                    roomId={page === "room" ? roomId : ""}
+                    onSubmit={(v) =>
+                      save(async () => {
+                        await insert("tenants", {
+                          ...v,
+                          email: v.email || null,
+                          organization_id: org,
+                        });
+                        setBillingCycleId("");
+                      }, "Đã lưu hồ sơ người thuê")
+                    }
+                  />
+                ) : (
+                  <DataForm
+                    schema={tenantSchema}
+                    fields={tenantFields}
+                    defaults={
+                      tenant
+                        ? { ...tenant, email: tenant.email || "" }
+                        : {
+                            room_id: page === "room" ? roomId : "",
+                            full_name: "",
+                            gender: "",
+                            birth_date: "",
+                            identity_number: "",
+                            phone: "",
+                            email: "",
+                            move_in: localDay(),
+                          }
+                    }
+                    submit="Lưu người thuê"
+                    onSubmit={(v) =>
+                      save(
+                        () =>
+                          tenant
+                            ? update("tenants", tenant.id, org, {
+                                ...v,
+                                email: v.email || null,
+                              })
+                            : insert("tenants", {
+                                ...v,
+                                email: v.email || null,
+                                organization_id: org,
+                              }),
+                        "Đã lưu hồ sơ người thuê",
+                      )
+                    }
+                  />
+                )}
               </>
             )}
             {modal === "tenant-detail" && tenant && (
@@ -1665,6 +1833,18 @@ function Workspace({ session }: { session: Session }) {
                     ["Email", tenant.email || "Chưa cung cấp"],
                     ["Ngày vào ở", tenant.move_in],
                     ["Ngày chuyển đi", tenant.move_out || "Đang ở"],
+                    [
+                      "Mốc điện đầu đợt thuê",
+                      data.billingCycles
+                        .find((c) => c.id === tenant.billing_cycle_id)
+                        ?.electricity_initial?.toString() ?? "Chưa ghi",
+                    ],
+                    [
+                      "Mốc nước đầu đợt thuê",
+                      data.billingCycles
+                        .find((c) => c.id === tenant.billing_cycle_id)
+                        ?.water_initial?.toString() ?? "Chưa ghi",
+                    ],
                   ].map(([label, value]) => (
                     <div key={label}>
                       <span>{label}</span>
@@ -1917,6 +2097,16 @@ function Workspace({ session }: { session: Session }) {
               <>
                 <h2>Hóa đơn · {invoice.period.slice(0, 7)}</h2>
                 <p>Đơn giá đã lưu tại thời điểm lập hóa đơn.</p>
+                {invoice.billing_cycle_id && (
+                  <p className="form-hint">
+                    Đợt thuê nhận phòng{" "}
+                    {
+                      data.billingCycles.find(
+                        (c) => c.id === invoice.billing_cycle_id,
+                      )?.starts_on
+                    }
+                  </p>
+                )}
                 <div className="detail-list">
                   {[
                     ["Tiền phòng", money(invoice.room_rent)],
@@ -2127,6 +2317,16 @@ function Invoices({
                     )}
                   </button>
                   <small>Kỳ {i.period.slice(0, 7)}</small>
+                  {i.billing_cycle_id && (
+                    <small>
+                      Nhận phòng{" "}
+                      {
+                        data.billingCycles.find(
+                          (c) => c.id === i.billing_cycle_id,
+                        )?.starts_on
+                      }
+                    </small>
+                  )}
                 </td>
                 <td>{money(i.total)}</td>
                 <td>{money(remaining)}</td>
@@ -2161,6 +2361,7 @@ function Invoices({
   );
 }
 function InvoiceForm({
+  baseline,
   period,
   previous,
   room,
@@ -2169,38 +2370,39 @@ function InvoiceForm({
 }: {
   period: string;
   previous: Invoice | null;
+  baseline: BillingCycle;
   room: Room;
   rates: Rates;
   onSubmit: (v: Record<string, unknown>) => Promise<void>;
 }) {
   const fields: Field[] = [
-    { name: "period", label: "Kỳ hóa đơn", type: "month" },
+    { name: "period", label: "Kỳ hóa đơn", type: "month", readOnly: true },
     { name: "due_date", label: "Hạn thanh toán", type: "date" },
     {
       name: "electricity_old",
       label: "Điện · chỉ số cũ",
       type: "number",
       min: 0,
-      readOnly: !!previous,
+      readOnly: true,
     },
     {
       name: "electricity_new",
       label: `Điện · chỉ số mới (${money(rates.electricity)}/kWh)`,
       type: "number",
-      min: previous?.electricity_new || 0,
+      min: previous?.electricity_new ?? baseline.electricity_initial ?? 0,
     },
     {
       name: "water_old",
       label: "Nước · chỉ số cũ",
       type: "number",
       min: 0,
-      readOnly: !!previous,
+      readOnly: true,
     },
     {
       name: "water_new",
       label: `Nước · chỉ số mới (${money(rates.water)}/m³)`,
       type: "number",
-      min: previous?.water_new || 0,
+      min: previous?.water_new ?? baseline.water_initial ?? 0,
     },
   ];
   const [preview, setPreview] = useState<number | null>(null);
@@ -2242,9 +2444,10 @@ function InvoiceForm({
         defaults={{
           period,
           due_date: period + "-05",
-          electricity_old: previous?.electricity_new ?? "",
+          electricity_old:
+            previous?.electricity_new ?? baseline.electricity_initial ?? "",
           electricity_new: "",
-          water_old: previous?.water_new ?? "",
+          water_old: previous?.water_new ?? baseline.water_initial ?? "",
           water_new: "",
         }}
         submit="Lập hóa đơn"
@@ -2262,8 +2465,13 @@ function InvoiceForm({
           <b>{preview === null ? "Nhập chỉ số" : money(preview)}</b>
         </div>
         <p className="form-hint">
-          Chỉ số cũ lấy từ hóa đơn gần nhất. Tổng cuối cùng do máy chủ tính và
-          lưu.
+          Hóa đơn đầu tiên lấy chỉ số lúc nhận phòng; kỳ sau lấy số cuối kỳ
+          trước của cùng đợt thuê. Chọn tháng trên thanh Kỳ xem. Tổng cuối cùng
+          do máy chủ tính và lưu.
+        </p>
+        <p className="form-hint">
+          Tiền phòng và phí cố định theo mức tháng đã cấu hình cho hóa đơn này,
+          chưa tự phân bổ theo ngày ở.
         </p>
       </DataForm>
     </div>

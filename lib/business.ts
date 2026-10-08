@@ -112,3 +112,20 @@ export function isCurrentDocument(
   const owners = documentTenants(data, kind, id);
   return !owners.length || owners.some((t) => tenantStatus(t) === "Đang ở");
 }
+
+export function roomOccupiedOn(
+  data: import("./types").Data,
+  roomId: string,
+  day: string,
+) {
+  return data.tenants.some(
+    (t) =>
+      t.room_id === roomId &&
+      t.move_in <= day &&
+      (!t.move_out || t.move_out > day),
+  );
+}
+export function nextMonth(period: string) {
+  const [year, month] = period.slice(0, 7).split("-").map(Number);
+  return new Date(Date.UTC(year, month, 1)).toISOString().slice(0, 10);
+}

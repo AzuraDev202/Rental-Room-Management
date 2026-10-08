@@ -10,6 +10,9 @@ erDiagram
   PROPERTIES ||--o| PROPERTY_SERVICE_RATES : configures
   PROPERTIES ||--o{ ROOMS : contains
   ROOMS ||--o{ TENANTS : houses
+  ROOMS ||--o{ ROOM_BILLING_CYCLES : cycles
+  ROOM_BILLING_CYCLES ||--o{ TENANTS : groups
+  ROOM_BILLING_CYCLES ||--o{ INVOICES : scopes
   ROOMS ||--o{ CONTRACTS : stores
   ROOMS ||--o{ INVOICES : bills
   INVOICES ||--o{ PAYMENTS : collects
@@ -19,18 +22,18 @@ erDiagram
   TENANTS ||--o{ CONTRACT_TENANTS : archives
 ```
 
-| Bảng                   | Dữ liệu / ràng buộc                                                                                |
-| ---------------------- | -------------------------------------------------------------------------------------------------- |
-| organizations          | Tên không gian, UUID, ngày tạo                                                                     |
-| memberships            | Khóa kép không gian + auth user, vai trò admin/manager/viewer, tên và email                        |
-| invitations            | Email chuẩn hóa, vai trò manager/viewer; chỉ người có email đã xác nhận trùng khớp nhận được       |
-| properties             | Tên duy nhất trong không gian, địa chỉ, chi phí thuê căn hộ/tháng                                  |
-| rooms                  | Tên duy nhất trong căn hộ, giá cho thuê phòng/tháng                                                |
-| tenants                | Hồ sơ, CCCD 12 số duy nhất trong không gian, phone 10 số, room_id, ngày vào/chuyển đi              |
-| property_service_rates | Một bộ đơn giá hiện hành/căn hộ, khóa chính property_id, khóa ngoại kép bảo vệ organization_id     |
-| contracts              | Tên tệp, đường dẫn riêng tư organization/room/random-id, ngày hiệu lực                             |
-| invoices               | Một hóa đơn/phòng/kỳ, chỉ số cũ/mới, snapshot giá thuê và đơn giá, tổng tính bằng generated column |
-| payments               | Thanh toán nhiều đợt, số tiền, thời điểm máy chủ, người ghi nhận                                   |
+| Bảng                   | Dữ liệu / ràng buộc                                                                                         |
+| ---------------------- | ----------------------------------------------------------------------------------------------------------- |
+| organizations          | Tên không gian, UUID, ngày tạo                                                                              |
+| memberships            | Khóa kép không gian + auth user, vai trò admin/manager/viewer, tên và email                                 |
+| invitations            | Email chuẩn hóa, vai trò manager/viewer; chỉ người có email đã xác nhận trùng khớp nhận được                |
+| properties             | Tên duy nhất trong không gian, địa chỉ, chi phí thuê căn hộ/tháng                                           |
+| rooms                  | Tên duy nhất trong căn hộ, giá cho thuê phòng/tháng                                                         |
+| tenants                | Hồ sơ, CCCD 12 số duy nhất trong không gian, phone 10 số, room_id, ngày vào/chuyển đi                       |
+| property_service_rates | Một bộ đơn giá hiện hành/căn hộ, khóa chính property_id, khóa ngoại kép bảo vệ organization_id              |
+| contracts              | Tên tệp, đường dẫn riêng tư organization/room/random-id, ngày hiệu lực                                      |
+| invoices               | Một hóa đơn/phòng/đợt thuê/kỳ, chỉ số cũ/mới, snapshot giá thuê và đơn giá, tổng tính bằng generated column |
+| payments               | Thanh toán nhiều đợt, số tiền, thời điểm máy chủ, người ghi nhận                                            |
 
 Tiền lưu dạng bigint VNĐ nguyên; mỗi giá/phí và tổng hóa đơn giới hạn 1.000.000.000.000 VNĐ. Chỉ số điện nước lưu integer không âm; chỉ số mới không nhỏ hơn cũ. Những phép tính vượt giới hạn bị từ chối thay vì lưu sai.
 
@@ -68,3 +71,13 @@ Chỉ RPC được thay đổi `deleted_at`; quyền INSERT/UPDATE của fronten
 Migration 004 thêm `invoice_tenants` và `contract_tenants`, khóa ngoại kép xác nhận cùng không gian. Trigger chốt người liên quan khi tạo chứng từ; migration liên kết dữ liệu cũ bằng thời gian thuê/thời điểm lập. Liên kết không tự thay đổi khi chuyển đi hoặc thêm người mới. Admin/manager có thể thêm liên kết qua `link_tenant_document`; RLS cho các vai trò cùng không gian đọc, không cho ghi/xóa liên kết trực tiếp.
 
 Ghi nhận chuyển đi cập nhật `tenants.move_out`; `room_id` vẫn giữ làm tham chiếu lịch sử, nhưng người thuê không hiện trong danh sách đang ở. Chứng từ trong phòng được lọc theo người liên quan đang ở; chứng từ chung vẫn còn cho người ở lại. Hồ sơ người thuê hiện chứng từ liên quan và thanh toán gốc; không sao chép hóa đơn hoặc nhân đôi doanh thu. Tài liệu cũ chưa có liên kết vẫn hiện để quản lý gán đúng người. Ngày vào ở/phòng của hồ sơ đã có chứng từ được bảo vệ; không mở lại đợt ở đã kết thúc.
+
+## Mốc nhận phòng và đợt thuê
+
+Migration 006 thêm `room_billing_cycles`: phòng, ngày bắt đầu, chỉ số điện/nước ban đầu và cờ lịch sử trước cập nhật. `tenants.billing_cycle_id` và `invoices.billing_cycle_id` dùng khóa ngoại kép kèm phòng/không gian để tránh gán sai. Bảng đợt thuê chỉ đọc qua RLS; không cho frontend tự sửa mốc hoặc gán đợt thuê.
+
+Trigger khi thêm người thuê khóa phòng, kiểm tra có người ở tại ngày vào ở hay không. Nếu còn người, dùng đợt thuê hiện tại; nếu trống, bắt buộc số ban đầu không âm và tạo đợt mới. Lịch tương lai chưa có mốc; `set_initial_room_readings` chỉ cho admin/manager ghi khi đến ngày nhận phòng, một lần trước khi có hóa đơn. Khi thay đổi ngày chuyển đi, lịch tương lai được đối chiếu lại để không mang mốc cũ qua khoảng phòng trống. Mốc và ngày/phòng của đợt thuê được giữ nguyên; thông tin cá nhân vẫn sửa được.
+
+`create_cycle_invoice` kiểm tra đợt thuộc đúng phòng và kỳ có người ở; kỳ đầu phải khớp mốc nhận phòng, kỳ sau phải khớp số cuối hóa đơn trước của cùng đợt. Unique index `(room_id,period,billing_cycle_id) NULLS NOT DISTINCT` cho các đợt khác nhau trong cùng tháng, chặn trùng trong một đợt. Snapshot người liên quan được lọc theo đợt, nên hóa đơn người mới không gán cho người cũ. RPC `create_invoice` cũ vẫn dùng được khi kỳ chỉ có một đợt; tháng có nhiều đợt yêu cầu chọn rõ. Phí và tiền phòng vẫn theo giá tháng hiện tại, chưa tự phân bổ theo ngày.
+
+Migration gắn dữ liệu hiện có vào đợt lịch sử trước cập nhật, giữ số tiền/chỉ số/thanh toán/liên kết tài liệu. Mốc lịch sử lấy số đầu hóa đơn sớm nhất khi có; không bịa số cho phòng chưa có hóa đơn.

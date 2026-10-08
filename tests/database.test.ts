@@ -72,6 +72,12 @@ test("migration, authorization and billing integration", async (t) => {
       "utf8",
     ),
   );
+  await db.exec(
+    readFileSync(
+      "supabase/migrations/202610080006_room_move_in_readings.sql",
+      "utf8",
+    ),
+  );
   await t.test("fresh database contains no example business data", async () => {
     for (const table of [
       "organizations",
@@ -204,9 +210,9 @@ test("migration, authorization and billing integration", async (t) => {
     );
     await as(users.owner);
     await reject(
-      `insert into tenants(organization_id,room_id,full_name,gender,birth_date,identity_number,phone,move_in) values($1,$2,'Tenant','Nam','1998-01-01','012345678901','0901234567','2026-01-01')`,
+      `insert into tenants(organization_id,room_id,full_name,gender,birth_date,identity_number,phone,move_in,electricity_initial,water_initial) values($1,$2,'Tenant','Nam','1998-01-01','012345678901','0901234567','2026-01-01',0,0)`,
       [org, otherRoom],
-      /foreign key/,
+      /không thuộc không gian/,
     );
   });
   await t.test("viewer cannot modify data or escalate role", async () => {
@@ -530,7 +536,7 @@ test("migration, authorization and billing integration", async (t) => {
         /khớp/,
       );
       await db.query(
-        `insert into tenants(organization_id,room_id,full_name,gender,birth_date,identity_number,phone,move_in) values($1,$2,'Remaining tenant','Nam','1990-01-01','123456780001','0901234567','2000-01-01')`,
+        `insert into tenants(organization_id,room_id,full_name,gender,birth_date,identity_number,phone,move_in,electricity_initial,water_initial) values($1,$2,'Remaining tenant','Nam','1990-01-01','123456780001','0901234567','2000-01-01',0,0)`,
         [org, room],
       );
       await reject(
@@ -582,7 +588,7 @@ test("migration, authorization and billing integration", async (t) => {
         )
       )[0].id;
       await db.query(
-        `insert into tenants(organization_id,room_id,full_name,gender,birth_date,identity_number,phone,move_in) values($1,$2,'Scheduled tenant','Nam','1990-01-01','123456780002','0901234567','2099-01-01')`,
+        `insert into tenants(organization_id,room_id,full_name,gender,birth_date,identity_number,phone,move_in,electricity_initial,water_initial) values($1,$2,'Scheduled tenant','Nam','1990-01-01','123456780002','0901234567','2099-01-01',0,0)`,
         [org, scheduledRoom],
       );
       await reject(
@@ -666,7 +672,7 @@ test("migration, authorization and billing integration", async (t) => {
         [prop, org],
       );
       const participants = await query<{ id: string }>(
-        `insert into tenants(organization_id,room_id,full_name,gender,birth_date,identity_number,phone,move_in) values($1,$2,'Archive A','Nam','1990-01-01','123456789001','0901234567','2000-01-01'),($1,$2,'Archive B','Nữ','1990-01-01','123456789002','0901234568','2000-01-01') returning id`,
+        `insert into tenants(organization_id,room_id,full_name,gender,birth_date,identity_number,phone,move_in,electricity_initial,water_initial) values($1,$2,'Archive A','Nam','1990-01-01','123456789001','0901234567','2000-01-01',0,0),($1,$2,'Archive B','Nữ','1990-01-01','123456789002','0901234568','2000-01-01',0,0) returning id`,
         [org, archiveRoom],
       );
       const bill = (
@@ -720,7 +726,7 @@ test("migration, authorization and billing integration", async (t) => {
       ]);
       const newcomer = (
         await query<{ id: string }>(
-          `insert into tenants(organization_id,room_id,full_name,gender,birth_date,identity_number,phone,move_in) values($1,$2,'New occupant','Nam','1990-01-01','123456789003','0901234569','2021-01-01') returning id`,
+          `insert into tenants(organization_id,room_id,full_name,gender,birth_date,identity_number,phone,move_in,electricity_initial,water_initial) values($1,$2,'New occupant','Nam','1990-01-01','123456789003','0901234569','2021-01-01',20,2) returning id`,
           [org, archiveRoom],
         )
       )[0].id;
@@ -790,7 +796,7 @@ test("migration, authorization and billing integration", async (t) => {
       );
       const wrongRoomTenant = (
         await query<{ id: string }>(
-          `insert into tenants(organization_id,room_id,full_name,gender,birth_date,identity_number,phone,move_in) values($1,$2,'Correction Tenant','Nam','1990-01-01','123456789004','0901234567','2021-01-01') returning id`,
+          `insert into tenants(organization_id,room_id,full_name,gender,birth_date,identity_number,phone,move_in,electricity_initial,water_initial) values($1,$2,'Correction Tenant','Nam','1990-01-01','123456789004','0901234567','2021-01-01',0,0) returning id`,
           [org, room],
         )
       )[0].id;
@@ -859,7 +865,7 @@ test("migration, authorization and billing integration", async (t) => {
         /Căn hộ đã xóa/,
       );
       await reject(
-        `insert into tenants(organization_id,room_id,full_name,gender,birth_date,identity_number,phone,move_in) values($1,$2,'Blocked','Nam','1990-01-01','123456789005','0901234567','2000-01-01')`,
+        `insert into tenants(organization_id,room_id,full_name,gender,birth_date,identity_number,phone,move_in,electricity_initial,water_initial) values($1,$2,'Blocked','Nam','1990-01-01','123456789005','0901234567','2000-01-01',0,0)`,
         [org, archiveRoom],
         /Căn hộ đã xóa/,
       );
@@ -936,6 +942,260 @@ test("migration, authorization and billing integration", async (t) => {
           ])
         ).length,
         1,
+      );
+    },
+  );
+  await t.test(
+    "vacant-room arrivals require a new baseline; roommates keep the same cycle and same-month bills remain separate",
+    async () => {
+      await as(users.manager);
+      const propertyId = (
+        await query<{ id: string }>(
+          `select public.create_property($1,'Meter cycles','Address',0,2) as id`,
+          [org],
+        )
+      )[0].id;
+      const rooms = await query<{ id: string }>(
+        `select id from rooms where property_id=$1 order by name`,
+        [propertyId],
+      );
+      const target = rooms[0].id;
+      await db.query(
+        `insert into property_service_rates(property_id,organization_id,electricity,water,trash,wifi,laundry) values($1,$2,1000,5000,0,0,0)`,
+        [propertyId, org],
+      );
+      await reject(
+        `insert into tenants(organization_id,room_id,full_name,gender,birth_date,identity_number,phone,move_in) values($1,$2,'Missing baseline','Nam','1990-01-01','223456789001','0901234567','2020-01-03')`,
+        [org, target],
+        /cần ghi chỉ số/,
+      );
+      assert.equal(
+        (
+          await query(`select * from room_billing_cycles where room_id=$1`, [
+            target,
+          ])
+        ).length,
+        0,
+      );
+      const first = (
+        await query<{ id: string; billing_cycle_id: string }>(
+          `insert into tenants(organization_id,room_id,full_name,gender,birth_date,identity_number,phone,move_in,electricity_initial,water_initial) values($1,$2,'First occupant','Nam','1990-01-01','223456789001','0901234567','2020-01-03',100,10) returning id,billing_cycle_id`,
+          [org, target],
+        )
+      )[0];
+      const shared = (
+        await query<{
+          id: string;
+          billing_cycle_id: string;
+          electricity_initial: null;
+        }>(
+          `insert into tenants(organization_id,room_id,full_name,gender,birth_date,identity_number,phone,move_in) values($1,$2,'Roommate','Nữ','1990-01-01','223456789002','0901234568','2020-01-04') returning id,billing_cycle_id,electricity_initial`,
+          [org, target],
+        )
+      )[0];
+      assert.equal(shared.billing_cycle_id, first.billing_cycle_id);
+      assert.equal(shared.electricity_initial, null);
+      await db.query(`update tenants set move_out='2020-01-10' where id=$1`, [
+        first.id,
+      ]);
+      const joined = (
+        await query<{ id: string; billing_cycle_id: string }>(
+          `insert into tenants(organization_id,room_id,full_name,gender,birth_date,identity_number,phone,move_in) values($1,$2,'Joined roommate','Nam','1990-01-01','223456789003','0901234569','2020-01-11') returning id,billing_cycle_id`,
+          [org, target],
+        )
+      )[0];
+      assert.equal(joined.billing_cycle_id, first.billing_cycle_id);
+      for (const t of [shared, joined])
+        await db.query(`update tenants set move_out='2020-01-17' where id=$1`, [
+          t.id,
+        ]);
+      await reject(
+        `insert into tenants(organization_id,room_id,full_name,gender,birth_date,identity_number,phone,move_in) values($1,$2,'New stay','Nam','1990-01-01','223456789004','0901234560','2020-01-20')`,
+        [org, target],
+        /cần ghi chỉ số/,
+      );
+      const next = (
+        await query<{ id: string; billing_cycle_id: string }>(
+          `insert into tenants(organization_id,room_id,full_name,gender,birth_date,identity_number,phone,move_in,electricity_initial,water_initial) values($1,$2,'New stay','Nam','1990-01-01','223456789004','0901234560','2020-01-20',200,20) returning id,billing_cycle_id`,
+          [org, target],
+        )
+      )[0];
+      assert.notEqual(next.billing_cycle_id, first.billing_cycle_id);
+      await reject(
+        `select public.create_cycle_invoice($1,$2,$3,'2020-01-01','2020-02-01',0,140,0,15)`,
+        [org, target, first.billing_cycle_id],
+        /khớp mốc/,
+      );
+      await reject(
+        `select public.create_cycle_invoice($1,$2,null,'2020-01-01','2020-02-01',0,140,0,15)`,
+        [org, target],
+        /chọn đợt thuê/,
+      );
+      await reject(
+        `select public.create_cycle_invoice($1,$2,$3,'2020-01-01','2020-02-01',200,220,20,22)`,
+        [org, rooms[1].id, next.billing_cycle_id],
+        /không thuộc đúng phòng/,
+      );
+      await reject(
+        `select public.create_cycle_invoice($1,$2,$3,'2020-01-01','2020-02-01',100,201,10,21)`,
+        [org, target, first.billing_cycle_id],
+        /mốc nhận phòng của đợt sau/,
+      );
+      const oldBill = (
+        await query<{ id: string }>(
+          `select public.create_cycle_invoice($1,$2,$3,'2020-01-01','2020-02-01',100,140,10,15) as id`,
+          [org, target, first.billing_cycle_id],
+        )
+      )[0].id;
+      await reject(
+        `select public.create_cycle_invoice($1,$2,$3,'2020-01-01','2020-02-01',140,220,15,22)`,
+        [org, target, next.billing_cycle_id],
+        /khớp mốc/,
+      );
+      const newBill = (
+        await query<{ id: string }>(
+          `select public.create_cycle_invoice($1,$2,$3,'2020-01-01','2020-02-01',200,220,20,22) as id`,
+          [org, target, next.billing_cycle_id],
+        )
+      )[0].id;
+      assert.equal(
+        Number(
+          (
+            await query<{ total: number }>(
+              `select total from invoices where id=$1`,
+              [newBill],
+            )
+          )[0].total,
+        ),
+        30000,
+      );
+      assert.equal(
+        (
+          await query(
+            `select * from invoices where room_id=$1 and period='2020-01-01'`,
+            [target],
+          )
+        ).length,
+        2,
+      );
+      assert.equal(
+        (
+          await query(`select * from invoice_tenants where invoice_id=$1`, [
+            oldBill,
+          ])
+        ).length,
+        3,
+      );
+      assert.deepEqual(
+        await query(
+          `select tenant_id from invoice_tenants where invoice_id=$1`,
+          [newBill],
+        ),
+        [{ tenant_id: next.id }],
+      );
+      await reject(
+        `select public.create_invoice($1,$2,'2020-01-01','2020-02-01',200,220,20,22)`,
+        [org, target],
+        /chọn đợt thuê/,
+      );
+      await reject(
+        `select public.create_cycle_invoice($1,$2,$3,'2020-02-01','2020-02-05',200,250,20,25)`,
+        [org, target, next.billing_cycle_id],
+        /khớp kỳ hóa đơn trước/,
+      );
+      await db.query(
+        `select public.create_cycle_invoice($1,$2,$3,'2020-02-01','2020-02-05',220,250,22,25)`,
+        [org, target, next.billing_cycle_id],
+      );
+      await reject(
+        `select public.set_initial_room_readings($1,$2,999,999)`,
+        [org, next.billing_cycle_id],
+        /Mốc nhận phòng đã lưu/,
+      );
+      await reject(
+        `update tenants set electricity_initial=999 where id=$1`,
+        [first.id],
+        /permission denied/,
+      );
+      await reject(
+        `update room_billing_cycles set electricity_initial=999 where id=$1`,
+        [first.billing_cycle_id],
+        /permission denied/,
+      );
+      const scheduled = (
+        await query<{ billing_cycle_id: string }>(
+          `insert into tenants(organization_id,room_id,full_name,gender,birth_date,identity_number,phone,move_in) values($1,$2,'Future booking','Nam','1990-01-01','223456789005','0901234561','2099-01-01') returning billing_cycle_id`,
+          [org, rooms[1].id],
+        )
+      )[0];
+      assert.equal(
+        (
+          await query<{ electricity_initial: null }>(
+            `select electricity_initial from room_billing_cycles where id=$1`,
+            [scheduled.billing_cycle_id],
+          )
+        )[0].electricity_initial,
+        null,
+      );
+      await reject(
+        `select public.set_initial_room_readings($1,$2,0,0)`,
+        [org, scheduled.billing_cycle_id],
+        /Chưa đến ngày/,
+      );
+      await as(users.viewer);
+      assert.equal(
+        (
+          await query(`select * from room_billing_cycles where room_id=$1`, [
+            target,
+          ])
+        ).length,
+        2,
+      );
+      await reject(
+        `select public.create_cycle_invoice($1,$2,$3,'2020-03-01','2020-03-05',250,260,25,26)`,
+        [org, target, next.billing_cycle_id],
+        /không có quyền/,
+      );
+      await as(users.outsider);
+      assert.equal(
+        (
+          await query(`select * from room_billing_cycles where room_id=$1`, [
+            target,
+          ])
+        ).length,
+        0,
+      );
+      await as(users.manager);
+      const futureShared = (
+        await query<{ id: string; billing_cycle_id: string }>(
+          `insert into tenants(organization_id,room_id,full_name,gender,birth_date,identity_number,phone,move_in) values($1,$2,'Future roommate','Nam','1990-01-01','223456789006','0901234562','2099-01-01') returning id,billing_cycle_id`,
+          [org, target],
+        )
+      )[0];
+      assert.equal(futureShared.billing_cycle_id, next.billing_cycle_id);
+      await db.query(`update tenants set move_out='2021-01-01' where id=$1`, [
+        next.id,
+      ]);
+      const reassigned = (
+        await query<{ billing_cycle_id: string }>(
+          `select billing_cycle_id from tenants where id=$1`,
+          [futureShared.id],
+        )
+      )[0].billing_cycle_id;
+      assert.notEqual(reassigned, next.billing_cycle_id);
+      assert.equal(
+        (
+          await query<{ electricity_initial: null }>(
+            `select electricity_initial from room_billing_cycles where id=$1`,
+            [reassigned],
+          )
+        )[0].electricity_initial,
+        null,
+      );
+      await reject(
+        `update tenants set billing_cycle_id=$1 where id=$2`,
+        [next.billing_cycle_id, futureShared.id],
+        /permission denied/,
       );
     },
   );

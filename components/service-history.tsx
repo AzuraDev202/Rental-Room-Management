@@ -131,6 +131,16 @@ export function ServiceHistory({
                             ?.name
                         }
                       </button>
+                      {i.billing_cycle_id && (
+                        <small>
+                          Nhận phòng{" "}
+                          {
+                            data.billingCycles.find(
+                              (c) => c.id === i.billing_cycle_id,
+                            )?.starts_on
+                          }
+                        </small>
+                      )}
                     </td>
                     <td>
                       {i.electricity_old} → {i.electricity_new}

@@ -193,6 +193,86 @@ test("existing rates and tenant document history migrate without changing financ
       ).rows.length,
       0,
     );
+    const unbilledRoom = (
+      await db.query<{ id: string }>(
+        `select r.id from rooms r join properties p on p.id=r.property_id where p.name='B' and p.organization_id=$1`,
+        [org],
+      )
+    ).rows[0].id;
+    await db.query(
+      `insert into tenants(organization_id,room_id,full_name,gender,birth_date,identity_number,phone,move_in) values($1,$2,'Unbilled legacy','Nam','1990-01-01','123456789003','0901234569','2000-01-01')`,
+      [org, unbilledRoom],
+    );
+    await db.exec("reset role");
+    await db.exec(
+      readFileSync(
+        "supabase/migrations/202610080006_room_move_in_readings.sql",
+        "utf8",
+      ),
+    );
+    await db.exec("set role authenticated");
+    const upgraded = (
+      await db.query<Record<string, unknown>>(
+        "select * from invoices where id=$1",
+        [invoice],
+      )
+    ).rows[0];
+    const legacyCycle = upgraded.billing_cycle_id;
+    delete upgraded.billing_cycle_id;
+    assert.deepEqual(upgraded, before);
+    const cycle = (
+      await db.query<{
+        electricity_initial: number;
+        water_initial: number;
+        is_legacy: boolean;
+      }>("select * from room_billing_cycles where id=$1", [legacyCycle])
+    ).rows[0];
+    assert.equal(cycle.electricity_initial, 0);
+    assert.equal(cycle.water_initial, 0);
+    assert.equal(cycle.is_legacy, true);
+    assert.equal(
+      (
+        await db.query("select * from invoice_tenants where invoice_id=$1", [
+          invoice,
+        ])
+      ).rows.length,
+      1,
+    );
+    assert.equal(
+      (await db.query("select * from payments where invoice_id=$1", [invoice]))
+        .rows.length,
+      1,
+    );
+    const unbilledCycle = (
+      await db.query<{ id: string; electricity_initial: null }>(
+        `select * from room_billing_cycles where room_id=$1`,
+        [unbilledRoom],
+      )
+    ).rows[0];
+    assert.equal(unbilledCycle.electricity_initial, null);
+    await assert.rejects(
+      db.query(
+        `select public.create_cycle_invoice($1,$2,$3,'2020-01-01','2020-01-05',100,110,20,22)`,
+        [org, unbilledRoom, unbilledCycle.id],
+      ),
+      /Cần ghi chỉ số nhận phòng/,
+    );
+    await db.query(`select public.set_initial_room_readings($1,$2,100,20)`, [
+      org,
+      unbilledCycle.id,
+    ]);
+    await db.query(
+      `select public.create_cycle_invoice($1,$2,$3,'2020-01-01','2020-01-05',100,110,20,22)`,
+      [org, unbilledRoom, unbilledCycle.id],
+    );
+    assert.equal(
+      (
+        await db.query(`select * from invoices where room_id=$1`, [
+          unbilledRoom,
+        ])
+      ).rows.length,
+      1,
+    );
   } finally {
     await db.close();
   }

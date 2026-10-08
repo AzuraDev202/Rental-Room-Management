@@ -8,8 +8,14 @@ import {
   tenantStatus,
   documentTenants,
   isCurrentDocument,
+  roomOccupiedOn,
 } from "../lib/business";
-import { propertySchema, tenantSchema, invoiceSchema } from "../lib/forms";
+import {
+  propertySchema,
+  tenantSchema,
+  invoiceSchema,
+  addTenantSchema,
+} from "../lib/forms";
 import type { Invoice, Payment } from "../lib/types";
 test("bill calculation and invalid readings", () => {
   const rates = {
@@ -187,4 +193,51 @@ test("shared documents stay current until all original tenants leave; newcomer i
     documentTenants(data, "invoice", "invoice").some((t) => t.id === "new"),
     false,
   );
+});
+
+test("arrival readings are required only for vacant rooms, and leaving the last resident makes the room vacant", () => {
+  const arrival = {
+    room_id: "00000000-0000-0000-0000-000000000001",
+    full_name: "Tenant",
+    gender: "Nam",
+    birth_date: "1990-01-01",
+    identity_number: "123456789012",
+    phone: "0901234567",
+    email: "",
+    move_in: "2000-01-01",
+  };
+  assert.equal(addTenantSchema(() => false).safeParse(arrival).success, false);
+  assert.equal(
+    addTenantSchema(() => false).safeParse({
+      ...arrival,
+      electricity_initial: 0,
+      water_initial: 0,
+    }).success,
+    true,
+  );
+  assert.equal(
+    addTenantSchema(() => false).safeParse({
+      ...arrival,
+      electricity_initial: -1,
+      water_initial: 0,
+    }).success,
+    false,
+  );
+  // Hidden values from a previously selected vacant room must not force readings for roommates.
+  const shared = addTenantSchema(() => true).parse({
+    ...arrival,
+    electricity_initial: -1,
+    water_initial: "invalid",
+  });
+  assert.equal(shared.electricity_initial, undefined);
+  const data = {
+    tenants: [
+      { room_id: "room", move_in: "2000-01-01", move_out: "2000-01-10" },
+      { room_id: "room", move_in: "2000-01-04", move_out: "2000-01-17" },
+    ],
+  } as unknown as import("../lib/types").Data;
+  assert.equal(roomOccupiedOn(data, "room", "2000-01-03"), true);
+  assert.equal(roomOccupiedOn(data, "room", "2000-01-10"), true);
+  assert.equal(roomOccupiedOn(data, "room", "2000-01-17"), false);
+  assert.equal(roomOccupiedOn(data, "room", "1999-12-31"), false);
 });

@@ -44,6 +44,12 @@ const uid = "00000000-0000-0000-0000-000000000001",
       "utf8",
     ),
   );
+  await db.exec(
+    fs.readFileSync(
+      root + "/supabase/migrations/202610080006_room_move_in_readings.sql",
+      "utf8",
+    ),
+  );
   const browser = await chromium.launch({
     headless: true,
     ...(process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH
@@ -178,6 +184,7 @@ const uid = "00000000-0000-0000-0000-000000000001",
         [
           "organizations",
           "memberships",
+          "room_billing_cycles",
           "invoice_tenants",
           "contract_tenants",
           "properties",
@@ -366,6 +373,19 @@ const uid = "00000000-0000-0000-0000-000000000001",
     .getByRole("button", { name: "Lưu người thuê", exact: true })
     .click();
   await page
+    .getByText("Phòng trống cần ghi chỉ số lúc nhận phòng", { exact: true })
+    .first()
+    .waitFor();
+  await page
+    .getByLabel("Điện · chỉ số lúc nhận phòng", { exact: true })
+    .fill("1240");
+  await page
+    .getByLabel("Nước · chỉ số lúc nhận phòng", { exact: true })
+    .fill("86");
+  await page
+    .getByRole("button", { name: "Lưu người thuê", exact: true })
+    .click();
+  await page
     .getByRole("heading", { name: "Thêm người thuê" })
     .waitFor({ state: "hidden" });
   await page.getByRole("button", { name: "Tải lên", exact: true }).click();
@@ -394,7 +414,7 @@ const uid = "00000000-0000-0000-0000-000000000001",
     ])
   ).rows[0].id;
   await db.query(
-    `insert into tenants(organization_id,room_id,full_name,gender,birth_date,identity_number,phone,move_in,move_out) values($1,$2,'Past Tenant','Nam','1998-01-01','012345678902','0909876543','2000-01-01','2000-02-01'),($1,$2,'Future Tenant','Nữ','1998-01-01','012345678903','0901234568','2099-01-01',null)`,
+    `insert into tenants(organization_id,room_id,full_name,gender,birth_date,identity_number,phone,move_in,move_out,electricity_initial,water_initial) values($1,$2,'Past Tenant','Nam','1998-01-01','012345678902','0909876543','2000-01-01','2000-02-01',0,0),($1,$2,'Future Tenant','Nữ','1998-01-01','012345678903','0901234568','2099-01-01',null,0,0)`,
     [groupingProperty.organization_id, groupingRoom],
   );
   const groupPropertyId = (
@@ -409,7 +429,7 @@ const uid = "00000000-0000-0000-0000-000000000001",
     ])
   ).rows[0].id;
   await db.query(
-    `insert into tenants(organization_id,room_id,full_name,gender,birth_date,identity_number,phone,move_in) values($1,$2,'Group Tenant','Nam','1998-01-01','012345678904','0901234569','2000-01-01')`,
+    `insert into tenants(organization_id,room_id,full_name,gender,birth_date,identity_number,phone,move_in,electricity_initial,water_initial) values($1,$2,'Group Tenant','Nam','1998-01-01','012345678904','0901234569','2000-01-01',0,0)`,
     [groupingProperty.organization_id, groupRoomId],
   );
   await page.reload({ waitUntil: "networkidle" });
@@ -478,10 +498,22 @@ const uid = "00000000-0000-0000-0000-000000000001",
   await page.getByRole("button", { name: /Room 101 1 người đang ở/ }).click();
   console.log("Tenant status filters and property/room grouping passed");
 
+  assert.equal(
+    await page.getByLabel("Điện · chỉ số cũ", { exact: true }).inputValue(),
+    "1240",
+  );
+  assert.equal(
+    await page.getByLabel("Nước · chỉ số cũ", { exact: true }).inputValue(),
+    "86",
+  );
+  assert.equal(
+    await page
+      .getByLabel("Điện · chỉ số cũ", { exact: true })
+      .getAttribute("readonly"),
+    "",
+  );
   for (const [label, v] of [
-    ["Điện · chỉ số cũ", "1240"],
     ["Điện · chỉ số mới (3.500 ₫/kWh)", "1325"],
-    ["Nước · chỉ số cũ", "86"],
     ["Nước · chỉ số mới (20.000 ₫/m³)", "92"],
   ])
     await page.getByLabel(label, { exact: true }).fill(v);
@@ -652,7 +684,7 @@ const uid = "00000000-0000-0000-0000-000000000001",
   );
   const participants = (
     await db.query(
-      `insert into tenants(organization_id,room_id,full_name,gender,birth_date,identity_number,phone,move_in) values($1,$2,'Archive A','Nam','1990-01-01','123456789001','0901234567','2000-01-01'),($1,$2,'Archive B','Nữ','1990-01-01','123456789002','0901234568','2000-01-01') returning id`,
+      `insert into tenants(organization_id,room_id,full_name,gender,birth_date,identity_number,phone,move_in,electricity_initial,water_initial) values($1,$2,'Archive A','Nam','1990-01-01','123456789001','0901234567','2000-01-01',0,0),($1,$2,'Archive B','Nữ','1990-01-01','123456789002','0901234568','2000-01-01',0,0) returning id`,
       [archiveOrg, archiveRoom],
     )
   ).rows;
@@ -789,7 +821,7 @@ const uid = "00000000-0000-0000-0000-000000000001",
   );
   const newcomer = (
     await db.query(
-      `insert into tenants(organization_id,room_id,full_name,gender,birth_date,identity_number,phone,move_in) values($1,$2,'Archive New','Nam','1990-01-01','123456789003','0901234569','2001-01-01') returning id`,
+      `insert into tenants(organization_id,room_id,full_name,gender,birth_date,identity_number,phone,move_in,electricity_initial,water_initial) values($1,$2,'Archive New','Nam','1990-01-01','123456789003','0901234569','2001-01-01',0,0) returning id`,
       [archiveOrg, archiveRoom],
     )
   ).rows[0].id;
@@ -947,9 +979,193 @@ const uid = "00000000-0000-0000-0000-000000000001",
     ),
     false,
   );
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  const arrivalProperty = (
+    await db.query(
+      `select public.create_property($1,'Arrival Building','Meter Address',0,1) as id`,
+      [archiveOrg],
+    )
+  ).rows[0].id;
+  const arrivalRoom = (
+    await db.query(`select id from rooms where property_id=$1`, [
+      arrivalProperty,
+    ])
+  ).rows[0].id;
+  await db.query(
+    `insert into property_service_rates(property_id,organization_id,electricity,water,trash,wifi,laundry) values($1,$2,1000,5000,0,0,0)`,
+    [arrivalProperty, archiveOrg],
+  );
+  const firstArrival = (
+    await db.query(
+      `insert into tenants(organization_id,room_id,full_name,gender,birth_date,identity_number,phone,move_in,electricity_initial,water_initial) values($1,$2,'Arrival First','Nam','1990-01-01','323456789001','0901234567','2000-01-01',0,0) returning id,billing_cycle_id`,
+      [archiveOrg, arrivalRoom],
+    )
+  ).rows[0];
+  await db.query(
+    `select public.create_cycle_invoice($1,$2,$3,'2020-01-01','2020-01-05',0,10,0,1)`,
+    [archiveOrg, arrivalRoom, firstArrival.billing_cycle_id],
+  );
+  await page.reload();
+  await page.getByRole("heading", { name: "Xin chào, Owner" }).waitFor();
+  const goToArrivalRoom = async (count) => {
+    if (await page.getByRole("button", { name: "Mở menu" }).isVisible())
+      await page.getByRole("button", { name: "Mở menu" }).click();
+    await page.getByRole("button", { name: /^Căn hộ/ }).click();
+    await page
+      .getByRole("button", { name: /Arrival Building Meter Address/ })
+      .click();
+    await page
+      .getByRole("button", {
+        name: count
+          ? new RegExp("Phòng 1 " + count + " người đang ở")
+          : /Phòng 1 Chưa có người thuê/,
+      })
+      .click();
+  };
+  const enterPerson = async (name, identity) => {
+    await page
+      .getByRole("button", { name: "Thêm người thuê", exact: true })
+      .click();
+    await page.getByLabel("Họ tên", { exact: true }).fill(name);
+    await page.getByLabel("Giới tính", { exact: true }).selectOption("Nam");
+    await page.getByLabel("Ngày sinh", { exact: true }).fill("1990-01-01");
+    await page
+      .getByLabel("Số CCCD (12 chữ số)", { exact: true })
+      .fill(identity);
+    await page.getByLabel("Số điện thoại", { exact: true }).fill("0901234567");
+  };
+  await goToArrivalRoom(1);
+  await enterPerson("Arrival Shared", "323456789002");
+  assert.equal(
+    await page
+      .getByLabel("Điện · chỉ số lúc nhận phòng", { exact: true })
+      .count(),
+    0,
+  );
+  assert.equal(
+    await page
+      .getByLabel("Nước · chỉ số lúc nhận phòng", { exact: true })
+      .count(),
+    0,
+  );
+  await page
+    .getByRole("button", { name: "Lưu người thuê", exact: true })
+    .click();
+  await page
+    .getByRole("heading", { name: "Thêm người thuê", exact: true })
+    .waitFor({ state: "hidden" });
+  await page
+    .locator(".tenant-row")
+    .filter({ hasText: "Arrival Shared" })
+    .waitFor();
+  assert.equal(
+    (
+      await db.query(
+        `select billing_cycle_id from tenants where full_name='Arrival Shared'`,
+      )
+    ).rows[0].billing_cycle_id,
+    firstArrival.billing_cycle_id,
+  );
+  await leave("Arrival Shared");
+  await goToArrivalRoom(1);
+  await leave("Arrival First");
+  await goToArrivalRoom(0);
+  await page.getByText("Trống", { exact: true }).waitFor();
+  await page
+    .getByLabel("Đợt thuê lập hóa đơn")
+    .selectOption(firstArrival.billing_cycle_id);
+  await enterPerson("Arrival New", "323456789003");
+  await page
+    .getByLabel("Điện · chỉ số lúc nhận phòng", { exact: true })
+    .fill("20");
+  await page
+    .getByLabel("Nước · chỉ số lúc nhận phòng", { exact: true })
+    .fill("2");
+  await page
+    .getByRole("button", { name: "Lưu người thuê", exact: true })
+    .click();
+  await page
+    .getByRole("heading", { name: "Thêm người thuê", exact: true })
+    .waitFor({ state: "hidden" });
+  await page
+    .locator(".tenant-row")
+    .filter({ hasText: "Arrival New" })
+    .waitFor();
+  const newArrival = (
+    await db.query(
+      `select id,billing_cycle_id from tenants where full_name='Arrival New'`,
+    )
+  ).rows[0];
+  assert.notEqual(newArrival.billing_cycle_id, firstArrival.billing_cycle_id);
+  assert.equal(
+    await page.getByLabel("Điện · chỉ số cũ", { exact: true }).inputValue(),
+    "20",
+  );
+  assert.equal(
+    await page.getByLabel("Nước · chỉ số cũ", { exact: true }).inputValue(),
+    "2",
+  );
+  // Settle the old cycle, then the new cycle in the same calendar month.
+  await page
+    .getByLabel("Đợt thuê lập hóa đơn")
+    .selectOption(firstArrival.billing_cycle_id);
+  assert.equal(
+    await page.getByLabel("Điện · chỉ số cũ", { exact: true }).inputValue(),
+    "10",
+  );
+  await page
+    .getByLabel("Điện · chỉ số mới (1.000 ₫/kWh)", { exact: true })
+    .fill("20");
+  await page
+    .getByLabel("Nước · chỉ số mới (5.000 ₫/m³)", { exact: true })
+    .fill("2");
+  await page.getByRole("button", { name: "Lập hóa đơn", exact: true }).click();
+  await page.waitForFunction(
+    () => document.querySelector("input[name=electricity_old]")?.value === "20",
+  );
+  await page
+    .getByLabel("Đợt thuê lập hóa đơn")
+    .selectOption(newArrival.billing_cycle_id);
+  assert.equal(
+    await page.getByLabel("Điện · chỉ số cũ", { exact: true }).inputValue(),
+    "20",
+  );
+  await page
+    .getByLabel("Điện · chỉ số mới (1.000 ₫/kWh)", { exact: true })
+    .fill("23");
+  await page
+    .getByLabel("Nước · chỉ số mới (5.000 ₫/m³)", { exact: true })
+    .fill("3");
+  await page.getByRole("button", { name: "Lập hóa đơn", exact: true }).click();
+  await page
+    .getByRole("region", { name: "Lịch sử sử dụng dịch vụ", exact: true })
+    .getByText("3 kWh × 1.000 ₫", { exact: true })
+    .waitFor();
+  const newArrivalBill = (
+    await db.query(`select * from invoices where billing_cycle_id=$1`, [
+      newArrival.billing_cycle_id,
+    ])
+  ).rows[0];
+  assert.equal(Number(newArrivalBill.total), 8000);
+  assert.deepEqual(
+    (
+      await db.query(
+        `select tenant_id from invoice_tenants where invoice_id=$1`,
+        [newArrivalBill.id],
+      )
+    ).rows,
+    [{ tenant_id: newArrival.id }],
+  );
+  const periodBills = (
+    await db.query(`select * from invoices where room_id=$1 and period=$2`, [
+      arrivalRoom,
+      newArrivalBill.period,
+    ])
+  ).rows;
+  assert.equal(periodBills.length, 2);
   assert.deepEqual(errors, []);
   console.log(
-    "PASS: login, empty database, workspace, property rent, room rent, service rates, invitation, tenant, contract upload, invoice, partial payment, reload persistence, mobile layout, viewer permissions, shared document archive after departure, newcomer isolation, vacant property deletion with retained tenant/payment history, monthly service history with property/room/month filters. Backend = local PostgreSQL with real migration; Auth/Storage HTTP simulated.",
+    "PASS: login, empty database, workspace, property rent, room rent, service rates, invitation, tenant, contract upload, invoice, partial payment, reload persistence, mobile layout, viewer permissions, shared document archive after departure, newcomer isolation, vacant property deletion with retained tenant/payment history, monthly service history with property/room/month filters, vacancy states and move-in baselines, shared occupancy without reset, same-month separate cycles. Backend = local PostgreSQL with real migration; Auth/Storage HTTP simulated.",
   );
   await browser.close();
   await db.close();

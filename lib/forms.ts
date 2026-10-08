@@ -65,6 +65,54 @@ const meter = z.preprocess(
     .min(0, "Không được âm")
     .max(2147483647, "Chỉ số quá lớn"),
 );
+export const initialReadingsSchema = z.object({
+  electricity_initial: meter,
+  water_initial: meter,
+});
+export const addTenantSchema = (
+  occupied: (room: string, day: string) => boolean,
+) =>
+  z.preprocess(
+    (value) => {
+      const v = value as Record<string, unknown>;
+      if (
+        v &&
+        typeof v === "object" &&
+        typeof v.room_id === "string" &&
+        typeof v.move_in === "string" &&
+        occupied(v.room_id, v.move_in)
+      )
+        return {
+          ...v,
+          electricity_initial: undefined,
+          water_initial: undefined,
+        };
+      return value;
+    },
+    tenantSchema
+      .and(
+        z.object({
+          electricity_initial: z.preprocess(
+            (v) => (v === "" || v === null ? undefined : v),
+            meter.optional(),
+          ),
+          water_initial: z.preprocess(
+            (v) => (v === "" || v === null ? undefined : v),
+            meter.optional(),
+          ),
+        }),
+      )
+      .superRefine((v, ctx) => {
+        if (!occupied(v.room_id, v.move_in))
+          for (const key of ["electricity_initial", "water_initial"] as const)
+            if (v[key] === undefined)
+              ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: [key],
+                message: "Phòng trống cần ghi chỉ số lúc nhận phòng",
+              });
+      }),
+  );
 export const invoiceSchema = z
   .object({
     period: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/, "Chọn kỳ hóa đơn"),

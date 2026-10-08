@@ -22,6 +22,10 @@ export type Room = {
   monthly_rent: number;
 };
 export type Tenant = {
+  was_scheduled: boolean;
+  billing_cycle_id: string | null;
+  electricity_initial: number | null;
+  water_initial: number | null;
   id: string;
   organization_id: string;
   room_id: string;
@@ -44,6 +48,7 @@ export type Rates = {
   laundry: number;
 };
 export type Invoice = {
+  billing_cycle_id: string | null;
   id: string;
   organization_id: string;
   room_id: string;
@@ -93,7 +98,17 @@ export type ContractTenant = {
   contract_id: string;
   tenant_id: string;
 };
+export type BillingCycle = {
+  id: string;
+  organization_id: string;
+  room_id: string;
+  starts_on: string;
+  electricity_initial: number | null;
+  water_initial: number | null;
+  is_legacy: boolean;
+};
 export type Data = {
+  billingCycles: BillingCycle[];
   invoiceTenants: InvoiceTenant[];
   contractTenants: ContractTenant[];
   properties: Property[];
@@ -107,6 +122,7 @@ export type Data = {
   invitations: Invitation[];
 };
 export const emptyData: Data = {
+  billingCycles: [],
   invoiceTenants: [],
   contractTenants: [],
   properties: [],

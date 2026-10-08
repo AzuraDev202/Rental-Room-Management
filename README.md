@@ -5,7 +5,7 @@
 ## 1. Tạo và cấu hình Supabase
 
 1. Tạo dự án tại https://supabase.com/dashboard. Chọn vùng gần Việt Nam và lưu mật khẩu database trong trình quản lý mật khẩu.
-2. Mở **SQL Editor**, chạy lần lượt `supabase/migrations/202610080001_hh_home.sql` rồi `supabase/migrations/202610080002_property_service_rates.sql` rồi `supabase/migrations/202610080003_delete_property.sql` và `supabase/migrations/202610080004_tenant_document_history.sql` và `supabase/migrations/202610080005_delete_vacant_property.sql`, mỗi file một lần trên dự án mới. Migration tạo bảng, RPC, RLS và bucket `contracts` riêng tư; không tạo dữ liệu căn hộ/người thuê/hóa đơn.
+2. Mở **SQL Editor**, chạy lần lượt `supabase/migrations/202610080001_hh_home.sql` rồi `supabase/migrations/202610080002_property_service_rates.sql` rồi `supabase/migrations/202610080003_delete_property.sql` và `supabase/migrations/202610080004_tenant_document_history.sql` và `supabase/migrations/202610080005_delete_vacant_property.sql` rồi `supabase/migrations/202610080006_room_move_in_readings.sql`, mỗi file một lần trên dự án mới. Migration tạo bảng, RPC, RLS và bucket `contracts` riêng tư; không tạo dữ liệu căn hộ/người thuê/hóa đơn.
 3. Trong **Authentication → Providers → Email**, bật đăng ký email/password và **Confirm email**. Thiết lập mật khẩu tối thiểu 8 ký tự. Với môi trường production, cấu hình SMTP để gửi email xác nhận và đặt lại mật khẩu ổn định.
 4. Trong **Authentication → URL Configuration**, đặt Site URL theo domain triển khai và thêm redirect URL cho domain đó. Khi chạy local, thêm `http://localhost:3000` và `http://localhost:3000/**`. Production dùng domain HTTPS cụ thể, không dùng wildcard rộng.
 5. Lấy Project URL và **publishable key hoặc anon key** từ Project Settings → API. Chỉ hai giá trị công khai này được dùng trong frontend. Không dùng `service_role` hoặc secret key.
@@ -45,7 +45,7 @@ npm start
 4. Vào **Cài đặt** để nhập đơn giá điện/nước và phí rác, wifi, máy giặt **riêng cho từng căn hộ**. Phần đơn giá không hiển thị khi chưa có căn hộ. Các phí này hiện tính theo phòng/tháng. Căn hộ mới chưa có đơn giá cho đến khi được lưu; cần thiết lập trước khi lập hóa đơn.
 5. Thêm người thuê; khai báo họ tên, giới tính, ngày sinh, CCCD, điện thoại, email (tùy chọn), ngày vào ở. Sửa hồ sơ hoặc ghi nhận chuyển đi; giữ lại hồ sơ đã chuyển đi. Trang Người thuê mặc định chỉ hiển thị Đang ở, phân nhóm căn hộ → phòng; có bộ lọc Sắp vào ở/Đã chuyển đi/Tất cả, căn hộ, phòng và tìm kiếm theo tên/điện thoại/phòng/căn hộ.
 6. Tải hợp đồng PDF/JPG/PNG tối đa 10 MB, nhập ngày hiệu lực. Tệp thuộc đúng không gian và phòng; nút Xem tạo URL ký có hiệu lực 60 giây, không phải liên kết công khai.
-7. Mở phòng để lập hóa đơn. Lần đầu nhập chỉ số cũ; các kỳ tiếp theo lấy chỉ số mới của hóa đơn gần nhất. Hóa đơn chỉ lập theo thứ tự kỳ, không trùng kỳ và không lập cho tháng tương lai. Máy chủ chốt giá phòng, đơn giá, phí và tính tổng; lịch sử không đổi khi chỉnh đơn giá.
+7. Mở phòng để lập hóa đơn. Lần đầu lấy mốc điện/nước lúc phòng trống nhận người mới; kỳ tiếp theo lấy chỉ số mới của hóa đơn gần nhất trong cùng đợt thuê. Hóa đơn chỉ lập theo thứ tự kỳ, không trùng kỳ trong một đợt thuê và không lập cho tháng tương lai. Máy chủ chốt giá phòng, đơn giá, phí và tính tổng; lịch sử không đổi khi chỉnh đơn giá.
 8. Trong **Hóa đơn**, ghi nhận thanh toán một phần hoặc toàn bộ. Máy chủ khóa hóa đơn khi thu tiền, chặn vượt công nợ và thu lặp khi đã đủ. Ngày thanh toán là thời điểm ghi nhận, không hỗ trợ sửa lịch sử hoặc backdate.
 9. Dashboard thống kê thực thu theo ngày nhận tiền, quy đổi giờ Việt Nam; chọn tháng/năm và lọc căn hộ cho biểu đồ 12 tháng. Còn phải thu được lọc theo kỳ hóa đơn. Tỷ lệ lấp đầy dựa vào ngày vào ở/chuyển đi, tính theo ngày hiện tại ở Việt Nam.
 
@@ -97,4 +97,16 @@ Migration tự liên kết tài liệu hiện có dựa trên phòng, thời gia
 
 Vào **Hóa đơn → Lịch sử sử dụng dịch vụ**, lọc căn hộ, phòng và tháng (hoặc tất cả tháng). Mỗi kỳ hiển thị chỉ số điện/nước cũ → mới, lượng tiêu thụ kWh/m³, đơn giá tại thời điểm lập, phí rác/wifi/máy giặt theo tháng và tổng dịch vụ chưa gồm tiền phòng. **Chi tiết** mở hóa đơn và lịch sử thanh toán. Trang chi tiết phòng cũng có lịch sử riêng của phòng.
 
-Dữ liệu lấy từ hóa đơn đã chốt, giữ nguyên khi đổi đơn giá, người thuê chuyển đi hoặc căn hộ đã xóa. Tháng chưa có hóa đơn chưa có số liệu để tổng kết; không tự tạo lịch sử giả. Không có tính năng tải/lưu ảnh điện nước. Bản cập nhật này không cần migration SQL mới.
+Dữ liệu lấy từ hóa đơn đã chốt, giữ nguyên khi đổi đơn giá, người thuê chuyển đi hoặc căn hộ đã xóa. Tháng chưa có hóa đơn chưa có số liệu để tổng kết; không tự tạo lịch sử giả. Không có tính năng tải/lưu ảnh điện nước. Lịch sử dịch vụ sử dụng dữ liệu hóa đơn có sẵn; chức năng mốc nhận phòng cần migration 006 bên dưới.
+
+## Chỉ số nhận phòng và trạng thái phòng
+
+Chạy **nội dung** [202610080006_room_move_in_readings.sql](supabase/migrations/202610080006_room_move_in_readings.sql) một lần sau migration 005, rồi cập nhật ứng dụng.
+
+- Trạng thái **Trống / Đang ở** tự tính từ ngày vào ở/chuyển đi của người thuê, theo ngày Việt Nam. Không cần bật/tắt thủ công.
+- Khi thêm người vào phòng trống, phải nhập chỉ số điện/nước tại ngày nhận phòng. Phòng bắt đầu đợt thuê mới; ghi vào lịch sử **Mốc điện / nước lúc nhận phòng**.
+- Nếu phòng còn người ở, thêm người mới tiếp tục đợt thuê và mốc hiện tại, không yêu cầu nhập lại.
+- Khi lập hóa đơn, chọn tháng ở **Kỳ xem** và chọn **Đợt thuê** nếu cần. Chỉ số cũ khóa theo mốc nhận phòng cho kỳ đầu, rồi theo số cuối hóa đơn trước của cùng đợt. Hai đợt thuê trong cùng tháng có hóa đơn riêng; chứng từ chỉ liên kết người của đợt tương ứng.
+- Phòng trống giữa hai đợt: số điện/nước lúc người mới nhận phòng là mốc mới, không lấy số cuối hóa đơn người cũ để tính phần tiêu thụ trong thời gian phòng trống. Tiền phòng/phí cố định vẫn theo cấu hình tháng hiện tại của mỗi hóa đơn; chưa tự chia theo số ngày ở.
+- Với lịch Sắp vào ở, ghi mốc khi đến ngày nhận phòng; không yêu cầu đo trước. Nếu mọi người hiện tại rời đi trước ngày khách đã đặt vào ở, lịch đó được tách sang đợt mới chưa có mốc, để yêu cầu ghi lại khi nhận phòng.
+- Dữ liệu cũ giữ thành lịch sử trước cập nhật. Nếu đã có hóa đơn, giữ nguyên số tiền/chỉ số/thanh toán; nếu chưa có mốc và chưa có hóa đơn, quản lý dùng **Lưu mốc nhận phòng** trước khi lập kỳ đầu. Mốc đã lưu được giữ nguyên.
