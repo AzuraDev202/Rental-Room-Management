@@ -104,3 +104,7 @@ Chạy **nội dung** [202610080006_room_move_in_readings.sql](supabase/migratio
 - Phòng trống giữa hai đợt: số điện/nước lúc người mới nhận phòng là mốc mới, không lấy số cuối hóa đơn người cũ để tính phần tiêu thụ trong thời gian phòng trống. Tiền phòng/phí cố định vẫn theo cấu hình tháng hiện tại của mỗi hóa đơn; chưa tự chia theo số ngày ở.
 - Với lịch Sắp vào ở, ghi mốc khi đến ngày nhận phòng; không yêu cầu đo trước. Nếu mọi người hiện tại rời đi trước ngày khách đã đặt vào ở, lịch đó được tách sang đợt mới chưa có mốc, để yêu cầu ghi lại khi nhận phòng.
 - Dữ liệu cũ giữ thành lịch sử trước cập nhật. Nếu đã có hóa đơn, giữ nguyên số tiền/chỉ số/thanh toán; nếu chưa có mốc và chưa có hóa đơn, quản lý dùng **Lưu mốc nhận phòng** trước khi lập kỳ đầu. Mốc đã lưu được giữ nguyên.
+
+## Hóa đơn trong Người thuê
+
+Mục **Người thuê** gồm danh sách người thuê theo trạng thái và bảng **Hóa đơn kỳ** phía dưới. Chọn tháng ở **Kỳ xem**, mở chi tiết, thu tiền hoặc xuất CSV tại đây. Hồ sơ từng người vẫn hiển thị hóa đơn/thanh toán liên quan, gồm người đã chuyển đi. **Xem hóa đơn** trên Tổng quan cũng dẫn đến Người thuê; thanh bên không có mục Hóa đơn riêng. Việc lập hóa đơn vẫn ở chi tiết phòng.

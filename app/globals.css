@@ -2207,3 +2207,7 @@ select:focus {
   width: 100%;
   margin-top: 8px;
 }
+
+.tenant-invoices {
+  margin-top: 24px;
+}

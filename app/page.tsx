@@ -352,7 +352,6 @@ function Workspace({ session }: { session: Session }) {
     ["dashboard", "Tổng quan", LayoutDashboard],
     ["properties", "Căn hộ", Building2],
     ["tenants", "Người thuê", Users],
-    ["invoices", "Hóa đơn", ReceiptText],
     ["settings", "Cài đặt", Settings],
   ] as const;
   const navigate = (next: string) => {
@@ -440,7 +439,6 @@ function Workspace({ session }: { session: Session }) {
     property: property?.name || "Căn hộ",
     room: room?.name || "Phòng",
     tenants: "Người thuê",
-    invoices: "Hóa đơn & thu tiền",
     settings: "Cài đặt",
   };
   const tenantStayLocked =
@@ -978,7 +976,7 @@ function Workspace({ session }: { session: Session }) {
                     </div>
                     <button
                       className="text-button"
-                      onClick={() => navigate("invoices")}
+                      onClick={() => navigate("tenants")}
                     >
                       Xem hóa đơn <ArrowRight size={16} />
                     </button>
@@ -1397,7 +1395,7 @@ function Workspace({ session }: { session: Session }) {
                               ? "Ghi mốc điện/nước trước khi lập hóa đơn đầu tiên của đợt thuê."
                               : canWrite
                                 ? "Thiết lập đơn giá của căn hộ này trong Cài đặt trước khi lập hóa đơn."
-                                : "Bạn có thể xem hóa đơn tại trang Hóa đơn."
+                                : "Bạn có thể xem hóa đơn tại trang Người thuê."
                         }
                       />
                     )}
@@ -1418,9 +1416,9 @@ function Workspace({ session }: { session: Session }) {
                   }}
                 />
               )}
-              {page === "invoices" && (
+              {page === "tenants" && (
                 <>
-                  <section className="panel">
+                  <section className="panel tenant-invoices" aria-label="Hóa đơn và thu tiền">
                     <div className="panel-heading">
                       <div>
                         <h2>Hóa đơn kỳ {period}</h2>

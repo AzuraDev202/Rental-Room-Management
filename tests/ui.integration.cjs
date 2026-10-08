@@ -519,7 +519,9 @@ const uid = "00000000-0000-0000-0000-000000000001",
     await page.getByLabel(label, { exact: true }).fill(v);
   await page.getByRole("button", { name: "Lập hóa đơn", exact: true }).click();
   await page.getByText("Đã lập hóa đơn", { exact: true }).waitFor();
-  await page.getByRole("button", { name: "Hóa đơn", exact: true }).click();
+  await page.getByRole("button", { name: "Người thuê", exact: true }).click();
+  assert.equal(await page.getByRole("button", { name: "Hóa đơn", exact: true }).count(), 0);
+  await page.getByRole("region", { name: "Hóa đơn và thu tiền", exact: true }).waitFor();
   await page.getByRole("button", { name: "Thu tiền", exact: true }).click();
   await page
     .getByLabel("Số tiền thanh toán (VNĐ)", { exact: true })
@@ -934,7 +936,7 @@ const uid = "00000000-0000-0000-0000-000000000001",
     "0901234560",
   );
   await page.getByRole("button", { name: "Mở menu" }).click();
-  await page.getByRole("button", { name: "Hóa đơn", exact: true }).click();
+  await page.getByRole("button", { name: "Người thuê", exact: true }).click();
   assert.equal(await page.getByRole("region", { name: "Lịch sử sử dụng dịch vụ", exact: true }).count(), 0);
   assert.equal(await page.getByLabel("Ảnh điện", { exact: true }).count(), 0);
   await page.setViewportSize({ width: 390, height: 844 });
