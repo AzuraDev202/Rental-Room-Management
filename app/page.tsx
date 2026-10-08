@@ -1,32 +1,2142 @@
-'use client';
-import {useState} from 'react';
-import {LayoutDashboard, Building2, Users, ReceiptText, Settings, Search, Bell, Plus, ArrowUpRight, ArrowRight, ChevronDown, ChevronLeft, ChevronRight, MoreHorizontal, DoorOpen, Wallet, CircleHelp, LogOut, X, MapPin, Check, Download, FileText, Zap, Droplets, Menu, Home, TrendingUp} from 'lucide-react';
-type Property={id:number;name:string;address:string;rooms:number;monthlyRent:number;occupied:number;revenue:number;image:string};
-const initial:Property[]=[{id:1,name:'HH HOME 1',address:'128 Nguyễn Văn Đậu, Bình Thạnh',rooms:12,monthlyRent:18000000,occupied:11,revenue:42.5,image:'photo-1600585154340-be6161a56a0c'},{id:2,name:'HH HOME 2',address:'45/8 Lê Văn Sỹ, Phú Nhuận',rooms:10,monthlyRent:18000000,occupied:9,revenue:35.8,image:'photo-1600607687920-4e2a09cf159d'},{id:3,name:'HH HOME 3',address:'72 Đường số 8, Thủ Đức',rooms:14,monthlyRent:18000000,occupied:12,revenue:46.2,image:'photo-1600047509782-20d39509f26d'}];
-const tenants=[['Nguyễn Minh Anh','P.101','HH HOME 1','0901 234 567'],['Trần Hoàng Nam','P.102','HH HOME 1','0902 345 678'],['Lê Thảo Nguyên','P.201','HH HOME 2','0903 456 789'],['Phạm Đức Huy','P.301','HH HOME 3','0904 567 890']];
-const money=(n:number)=>new Intl.NumberFormat('vi-VN').format(n)+' ₫';
-export default function Page(){
-const [page,setPage]=useState('dashboard'),[properties,setProperties]=useState(initial),[selected,setSelected]=useState(initial[0]),[room,setRoom]=useState('101'),[modal,setModal]=useState(''),[search,setSearch]=useState(''),[period,setPeriod]=useState('Tháng 10, 2026'),[toast,setToast]=useState(''),[mobile,setMobile]=useState(false),[electric,setElectric]=useState(3500),[water,setWater]=useState(20000),[oldE,setOldE]=useState(1240),[newE,setNewE]=useState(1325),[oldW,setOldW]=useState(86),[newW,setNewW]=useState(92),[paid,setPaid]=useState<string[]>([]),[name,setName]=useState(''),[address,setAddress]=useState(''),[count,setCount]=useState(10),[monthlyRent,setMonthlyRent]=useState(''),[trash,setTrash]=useState(30000),[wifi,setWifi]=useState(70000),[laundry,setLaundry]=useState(50000);
-const inform=(s:string)=>{setToast(s);setTimeout(()=>setToast(''),3500)};
-const navigate=(p:string)=>{setPage(p);setMobile(false);setSearch('')};
-const openProperty=(p:Property)=>{setSelected(p);navigate('property')};
-const exportCSV=()=>{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob(['\uFEFFCăn hộ,Doanh thu tháng (VND),Số phòng,Đang thuê\n'+properties.map(p=>`${p.name},${p.revenue*1000000},${p.rooms},${p.occupied}`).join('\n')],{type:'text/csv;charset=utf-8;'}));a.download='HH-HOME-doanh-thu.csv';a.click();URL.revokeObjectURL(a.href)};
-const total=3800000+Math.max(0,newE-oldE)*electric+Math.max(0,newW-oldW)*water+trash+wifi+laundry;
-const nav=[['dashboard','Tổng quan',LayoutDashboard],['properties','Căn hộ',Building2],['tenants','Người thuê',Users],['invoices','Hóa đơn',ReceiptText],['settings','Cài đặt',Settings]] as const;
-const titles:Record<string,string>={dashboard:'Tổng quan',properties:'Căn hộ của bạn',property:selected.name,room:'Phòng '+room,tenants:'Người thuê',invoices:'Hóa đơn & thu tiền',settings:'Cài đặt đơn giá'};
-const filtered=properties.filter(p=>(p.name+' '+p.address).toLowerCase().includes(search.toLowerCase()));
-return <div className="app"><aside className={mobile?'sidebar open':'sidebar'}><a className="brand" onClick={()=>navigate('dashboard')}><span className="brand-icon"><Home size={23}/></span><span>HH HOME<span className="brand-sub">PROPERTY MANAGEMENT</span></span></a><div className="workspace"><div className="workspace-icon">H</div><div><b>HH HOME Workspace</b><small>Tài khoản quản lý</small></div><ChevronDown size={15}/></div><div className="nav-label">KHÔNG GIAN LÀM VIỆC</div><nav>{nav.map(([id,label,Icon])=><button key={id} className={(page===id||(id==='properties'&&['property','room'].includes(page)))?'active':''} onClick={()=>navigate(id)}><Icon size={19}/>{label}{id==='properties'&&<span className="nav-count">{properties.length}</span>}</button>)}</nav><div className="side-bottom"><div className="help-card"><span className="help-icon"><CircleHelp size={20}/></span><b>Mọi thứ trong tầm tay</b><p>Quản lý nhẹ nhàng hơn.<br/>An tâm mỗi ngày.</p><button onClick={()=>setModal('help')}>Trung tâm trợ giúp <ArrowUpRight size={15}/></button></div><button className="profile" onClick={()=>setModal('profile')}><span className="avatar">HL</span><span><b>Hoàng Lâm</b><small>Quản lý HH HOME</small></span><LogOut size={17}/></button></div></aside><div className="main"><header><div className="breadcrumb"><button className="mobile-menu" onClick={()=>setMobile(!mobile)}><Menu size={22}/></button><span>Không gian làm việc</span><ChevronRight size={14}/><b>{titles[page]}</b></div><div className="header-right"><span className="demo">Bản mẫu giao diện</span><button className="bell" aria-label="Thông báo" onClick={()=>setModal('notifications')}><Bell size={20}/><i/></button><span className="avatar small">HL</span></div></header><main><div className="page-heading"><div>{['property','room'].includes(page)&&<button className="back" onClick={()=>navigate(page==='room'?'property':'properties')}><ChevronLeft size={15}/> Quay lại</button>}<div className="eyebrow">{page==='dashboard'?'KHÔNG GIAN SỐNG, QUẢN LÝ THÔNG MINH':'HH HOME / QUẢN LÝ'}</div><h1>{page==='dashboard'?'Một ngày tốt lành, Lâm':titles[page]}{page==='dashboard'&&<span className="wave">✳</span>}</h1><p>{page==='dashboard'?'Cùng nhìn lại hoạt động của các căn hộ hôm nay.':page==='properties'?'Tất cả căn hộ, gọn gàng trong một không gian.':page==='property'?selected.address:page==='room'?`${selected.name} · Thông tin phòng và chi phí hàng tháng`:page==='tenants'?'Kết nối và quản lý thông tin người thuê.':page==='invoices'?'Theo dõi các khoản phải thu và thanh toán hàng tháng.':'Thiết lập mức phí áp dụng cho các kỳ tính tiền mới.'}</p></div><div className="heading-actions"><label className="period"><select value={period} onChange={e=>setPeriod(e.target.value)}>{['Tháng 10, 2026','Tháng 09, 2026','Tháng 08, 2026'].map(t=><option key={t}>{t}</option>)}</select></label>{page==='properties'&&<button className="primary" onClick={()=>{setName('');setAddress('');setCount(10);setMonthlyRent('');setModal('add')}}><Plus size={17}/> Thêm căn hộ</button>}</div></div>
-{page==='dashboard'&&<><div className="stats"><Stat label="Doanh thu tháng này" value={money((period==='Tháng 10, 2026'?124.5:period==='Tháng 09, 2026'?111.2:105.7)*1000000)} icon={<Wallet size={21}/>} foot="so với tháng trước" change="+12,0%"/><Stat label="Căn hộ đang quản lý" value={String(properties.length).padStart(2,'0')} icon={<Building2 size={21}/>} foot={`${properties.reduce((s,p)=>s+p.rooms,0)} phòng trong hệ thống`} change=""/><Stat label="Tỷ lệ lấp đầy" value="88,9%" icon={<DoorOpen size={21}/>} foot="32 / 36 phòng đang thuê" change=""/><Stat label="Cần thu trong tháng" value={money(15800000-paid.length*3950000)} icon={<ReceiptText size={21}/>} foot={`${4-paid.length} hóa đơn chờ thanh toán`} change="" warning/></div><div className="analytics"><section className="panel revenue"><div className="panel-heading"><div><h2>Doanh thu theo tháng</h2><p>Bức tranh tài chính của các căn hộ</p></div><span className="year">Năm 2026 <ChevronDown size={14}/></span></div><div className="chart-top"><b>{period==='Tháng 10, 2026'?'124,5':period==='Tháng 09, 2026'?'111,2':'105,7'} <span>triệu đồng</span></b><span className="growth"><TrendingUp size={14}/> +12,0%</span><span className="chart-unit">Đơn vị: triệu đồng</span></div><div className="chart"><div className="y-axis">{[150,100,50,0].map(n=><span key={n}>{n}</span>)}</div><div className="plot"><div className="gridlines"><i/><i/><i/><i/></div><svg viewBox="0 0 700 190" preserveAspectRatio="none" role="img" aria-label="Biểu đồ doanh thu 10 tháng"><defs><linearGradient id="fill" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stopColor="#2c8068" stopOpacity=".16"/><stop offset="100%" stopColor="#2c8068" stopOpacity="0"/></linearGradient></defs><path d="M0 133 C30 133 48 98 78 105 S125 129 155 115 S207 71 233 78 S280 82 310 65 S355 83 388 77 S435 41 465 47 S512 62 543 53 S590 21 620 26 S663 4 700 10 L700 190 L0 190 Z" fill="url(#fill)"/><path d="M0 133 C30 133 48 98 78 105 S125 129 155 115 S207 71 233 78 S280 82 310 65 S355 83 388 77 S435 41 465 47 S512 62 543 53 S590 21 620 26 S663 4 700 10" fill="none" stroke="#27755c" strokeWidth="3"/><circle cx="700" cy="10" r="5" fill="#27755c" stroke="white" strokeWidth="3"/></svg><div className="x-axis">{Array.from({length:10},(_,i)=><span key={i}>T{i+1}</span>)}</div></div></div><div className="chart-legend"><i/> Tổng doanh thu <span>Từ tháng 01 đến tháng 10, 2026</span></div></section><section className="panel occupancy"><div className="panel-heading"><div><h2>Tình trạng phòng</h2><p>Không gian đang được lấp đầy</p></div><DoorOpen size={19}/></div><div className="donut"><div><b>36</b><span>Tổng số phòng</span></div></div><div className="occupancy-legend"><div><i className="green"/>Đang thuê <b>32 phòng</b></div><div><i className="pale"/>Còn trống <b>4 phòng</b></div></div><div className="occupancy-note"><span>88,9% phòng đã có người ở</span><ArrowUpRight size={15}/></div></section></div></>}
-{['dashboard','properties'].includes(page)&&<section className="property-section"><div className="section-heading"><div><h2>Căn hộ của bạn <span className="badge">{properties.length}</span></h2><p>Mỗi căn hộ, một mái nhà được chăm sóc.</p></div>{page==='dashboard'?<button className="text-button" onClick={()=>navigate('properties')}>Xem tất cả căn hộ <ArrowRight size={16}/></button>:<label className="search"><Search size={17}/><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Tìm tên hoặc địa chỉ..."/></label>}</div><div className="property-grid">{filtered.map((p,i)=><button key={p.id} className="property-card" onClick={()=>openProperty(p)}><div className="property-image" style={{backgroundImage:`url(/home-${(p.id-1)%3+1}.svg)`}}><span className="image-label"><i/> Đang hoạt động</span><span className="image-arrow"><ArrowUpRight size={18}/></span><span className="image-title">{p.name}<small>THÀNH PHỐ HỒ CHÍ MINH</small></span></div><div className="property-content"><div className="address"><MapPin size={14}/>{p.address}</div><div className="property-numbers"><span><DoorOpen size={15}/><b>{p.occupied}/{p.rooms}</b> phòng đã thuê</span><strong>{p.revenue.toLocaleString('vi-VN')} <small>tr/tháng</small></strong></div><div className="progress"><i style={{width:p.occupied/p.rooms*100+'%'}}/></div><div className="property-foot"><span>{p.rooms-p.occupied} phòng còn trống</span><span>Xem chi tiết <ArrowRight size={13}/></span></div></div></button>)}</div>{filtered.length===0&&<div className="empty">Không tìm thấy căn hộ phù hợp.</div>}</section>}
-{page==='dashboard'&&<section className="panel payments"><div className="panel-heading"><div><h2>Hóa đơn cần chú ý <span className="badge amber">{4-paid.length}</span></h2><p>Một chút nhắc nhở, để mọi thứ đúng hẹn.</p></div><button className="text-button" onClick={()=>navigate('invoices')}>Xem hóa đơn <ArrowRight size={16}/></button></div><InvoiceTable paid={paid} pay={id=>{setPaid([...paid,id]);inform('Đã ghi nhận thanh toán trong bản mẫu')}} compact/></section>}
-{page==='property'&&<><div className="stats three"><Stat label="Giá thuê căn hộ / tháng" value={money(selected.monthlyRent)} icon={<Wallet size={21}/>} foot="Chi phí thuê nguyên căn" change=""/><Stat label="Số phòng đang thuê" value={`${selected.occupied} / ${selected.rooms}`} icon={<DoorOpen size={21}/>} foot={`${selected.rooms-selected.occupied} phòng còn trống`} change=""/><Stat label="Doanh thu tháng" value={money(selected.revenue*1000000)} icon={<TrendingUp size={21}/>} foot={period} change=""/></div><div className="section-heading"><div><h2>Danh sách phòng</h2><p>Chọn một phòng để xem người thuê và tính tiền.</p></div></div><div className="rooms">{Array.from({length:selected.rooms},(_,i)=><button className="room-card" key={i} onClick={()=>{setRoom(String(101+i));navigate('room')}}><div><span className="room-icon"><DoorOpen size={23}/></span><span className={'status '+(i>=selected.occupied?'vacant':'')}>{i>=selected.occupied?'Còn trống':'Đang thuê'}</span></div><h2>Phòng {101+i}</h2><p>{i>=selected.occupied?'Sẵn sàng đón người thuê':tenants[i%4][0]+' · 2 người'}</p><div className="room-foot"><b>{money(3800000)}</b><ArrowRight size={17}/></div></button>)}</div></>}
-{page==='room'&&<div className="room-layout"><section className="panel"><div className="panel-heading"><div><h2>Người thuê phòng</h2><p>2 người đang ở · Ngày vào ở 01/06/2026</p></div><Users size={19}/></div>{tenants.slice(0,2).map((t,i)=><button key={t[0]} className="tenant-row" onClick={()=>setModal('tenant'+i)}><span className="avatar">{i?'HN':'MA'}</span><span><b>{t[0]}</b><small>{i?'Người ở cùng':'Đại diện hợp đồng'} · {t[3]}</small></span><ChevronRight size={17}/></button>)}<div className="contract"><FileText size={25}/><div><b>Hợp đồng thuê phòng {room}</b><small>Hiệu lực 01/06/2026 – 31/05/2027</small></div><button className="secondary" onClick={()=>setModal('contract')}>Xem hợp đồng</button></div></section><section className="panel bill"><div className="panel-heading"><div><h2>Tính tiền tháng {period.slice(6,8)}</h2><p>Nhập chỉ số để tính chi phí của phòng.</p></div><ReceiptText size={19}/></div><div className="meter"><h3><Zap size={17}/> Điện <small>{money(electric)}/kWh</small></h3><div className="form-grid"><label>Chỉ số cũ<input type="number" min="0" value={oldE} onChange={e=>setOldE(+e.target.value)}/></label><label>Chỉ số mới<input type="number" min="0" value={newE} onChange={e=>setNewE(+e.target.value)}/></label></div><p>{Math.max(0,newE-oldE)} kWh <b>{money(Math.max(0,newE-oldE)*electric)}</b></p></div><div className="meter"><h3><Droplets size={17}/> Nước <small>{money(water)}/m³</small></h3><div className="form-grid"><label>Chỉ số cũ<input type="number" min="0" value={oldW} onChange={e=>setOldW(+e.target.value)}/></label><label>Chỉ số mới<input type="number" min="0" value={newW} onChange={e=>setNewW(+e.target.value)}/></label></div><p>{Math.max(0,newW-oldW)} m³ <b>{money(Math.max(0,newW-oldW)*water)}</b></p></div><div className="bill-line">Tiền phòng <b>{money(3800000)}</b></div><div className="bill-line">Rác · Wifi · Máy giặt <b>{money(trash+wifi+laundry)}</b></div><div className="bill-total">Tổng cần thanh toán <b>{money(total)}</b></div><button className="primary wide" onClick={()=>newE<oldE||newW<oldW?inform('Chỉ số mới cần lớn hơn hoặc bằng chỉ số cũ'):inform('Đã lưu hóa đơn minh họa cho phòng '+room)}><Check size={17}/> Lưu hóa đơn</button></section></div>}
-{page==='tenants'&&<section className="panel"><div className="panel-heading"><h2>Danh sách người thuê</h2><label className="search"><Search size={17}/><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Tìm người thuê..."/></label></div><div className="table-wrap"><table><thead><tr><th>NGƯỜI THUÊ</th><th>PHÒNG</th><th>CĂN HỘ</th><th>SỐ ĐIỆN THOẠI</th><th/></tr></thead><tbody>{tenants.filter(t=>t.join(' ').toLowerCase().includes(search.toLowerCase())).map((t,i)=><tr key={t[0]}><td><span className="person"><span className="avatar">{t[0].split(' ').slice(-2).map(s=>s[0]).join('')}</span>{t[0]}</span></td><td>{t[1]}</td><td>{t[2]}</td><td>{t[3]}</td><td><button className="text-button" onClick={()=>setModal('tenant'+i)}>Chi tiết <ArrowRight size={14}/></button></td></tr>)}</tbody></table></div></section>}
-{page==='invoices'&&<section className="panel"><div className="panel-heading"><div><h2>Hóa đơn {period.toLowerCase()}</h2><p>Đã thanh toán: {paid.length}/4 hóa đơn</p></div><button className="secondary" onClick={exportCSV}><Download size={16}/> Xuất doanh thu</button></div><InvoiceTable paid={paid} pay={id=>{setPaid([...paid,id]);inform('Đã ghi nhận thanh toán trong bản mẫu')}}/></section>}
-{page==='settings'&&<section className="panel settings"><div className="panel-heading"><div><h2>Đơn giá dịch vụ</h2><p>Đơn giá minh họa dùng để tính tiền trong trang chi tiết phòng.</p></div></div><div className="form-grid"><label>Điện (₫/kWh)<input type="number" min="0" value={electric} onChange={e=>setElectric(Math.max(0,+e.target.value))}/></label><label>Nước (₫/m³)<input type="number" min="0" value={water} onChange={e=>setWater(Math.max(0,+e.target.value))}/></label><label>Rác (₫/phòng/tháng)<input type="number" min="0" value={trash} onChange={e=>setTrash(Math.max(0,+e.target.value))}/></label><label>Wifi (₫/phòng/tháng)<input type="number" min="0" value={wifi} onChange={e=>setWifi(Math.max(0,+e.target.value))}/></label><label>Máy giặt (₫/phòng/tháng)<input type="number" min="0" value={laundry} onChange={e=>setLaundry(Math.max(0,+e.target.value))}/></label></div><button className="primary" onClick={()=>inform('Đã cập nhật đơn giá dịch vụ trong bản mẫu')}><Check size={17}/> Lưu đơn giá</button></section>}
-<footer><span>© 2026 HH HOME. Chăm sóc từng mái nhà.</span><span><i/> Dữ liệu minh họa · Chưa kết nối cơ sở dữ liệu</span></footer></main></div>
-{toast&&<div className="toast"><Check size={18}/>{toast}</div>}
-{modal&&<div className="overlay" onClick={()=>setModal('')}><section className="modal" onClick={e=>e.stopPropagation()}><button className="close" aria-label="Đóng" onClick={()=>setModal('')}><X size={20}/></button>{modal==='add'?<><span className="modal-icon"><Building2 size={26}/></span><h2>Thêm một mái nhà mới</h2><p>Nhập thông tin căn hộ HH HOME quản lý.</p><form onSubmit={e=>{e.preventDefault();setProperties([...properties,{id:Date.now(),name,address,rooms:count,monthlyRent:Number(monthlyRent),occupied:0,revenue:0,image:initial[0].image}]);setModal('');inform('Đã thêm căn hộ vào bản mẫu')}}><label>Tên căn hộ<input required placeholder={`HH HOME ${properties.length+1}`} value={name} onChange={e=>setName(e.target.value)}/></label><label>Địa chỉ<input required placeholder="Số nhà, đường, phường, quận" value={address} onChange={e=>setAddress(e.target.value)}/></label><label>Số phòng<input required type="number" min="1" max="100" value={count} onChange={e=>setCount(+e.target.value)}/></label><label>Giá thuê căn hộ / tháng (VNĐ)<input required type="number" min="0" max="9007199254740991" step="1" placeholder="Ví dụ: 18000000" value={monthlyRent} onChange={e=>setMonthlyRent(e.target.value)}/></label><button className="primary wide" type="submit"><Plus size={17}/> Thêm căn hộ</button></form></>:modal.startsWith('tenant')?<><span className="modal-icon"><Users size={26}/></span><h2>{tenants[Number(modal.slice(6))][0]}</h2><p>Thông tin người thuê · Dữ liệu minh họa</p><div className="detail-list">{[['Giới tính',Number(modal.slice(6))%2?'Nam':'Nữ'],['Ngày sinh','15/08/1998'],['Số CCCD','•••• •••• 1234'],['Số điện thoại',tenants[Number(modal.slice(6))][3]],['Email','Chưa cung cấp'],['Ngày vào ở','01/06/2026']].map(([k,v])=><div key={k}><span>{k}</span><b>{v}</b></div>)}</div></>:modal==='contract'?<><span className="modal-icon"><FileText size={26}/></span><h2>Hợp đồng thuê phòng {room}</h2><p>Bản xem trước minh họa</p><div className="contract-preview"><h3>HỢP ĐỒNG THUÊ PHÒNG</h3><p>Bên cho thuê: HH HOME</p><p>Bên thuê: Nguyễn Minh Anh</p><p>Căn hộ: {selected.name} · Phòng {room}</p><p>Giá thuê: {money(3800000)}/tháng</p><p>Thời hạn: 01/06/2026 – 31/05/2027</p><p>Hợp đồng PDF thực tế sẽ được tải lên khi kết nối hệ thống lưu trữ.</p></div></>:modal==='notifications'?<><h2>Thông báo</h2><p>Những việc cần chú ý trong tháng</p><div className="detail-list"><div><span>Hóa đơn chờ thanh toán</span><b>{4-paid.length}</b></div><div><span>Phòng còn trống</span><b>4 phòng</b></div></div></>:modal==='profile'?<><span className="avatar">HL</span><h2>Hoàng Lâm</h2><p>Quản lý HH HOME</p><p>Đây là tài khoản minh họa cho bản thiết kế. Đăng nhập và phân quyền sẽ được tích hợp ở bước xây dựng hệ thống.</p></>:<><h2>Chào mừng đến HH HOME</h2><p>Chọn Căn hộ để mở danh sách phòng. Trong mỗi phòng, bạn có thể xem người thuê, hợp đồng và nhập chỉ số điện nước để tính hóa đơn.</p><p>Bản mẫu sử dụng dữ liệu minh họa; dữ liệu thay đổi sẽ được đặt lại khi tải lại trang.</p></>}</section></div>}
-</div>}
-function Stat({label,value,icon,foot,change,warning=false}:{label:string;value:string;icon:React.ReactNode;foot:string;change:string;warning?:boolean}){return <section className="stat"><div className="stat-top"><span>{label}</span><span className={'stat-icon '+(warning?'warm':'')}>{icon}</span></div><strong>{value}</strong><div className="stat-foot">{change&&<span className="growth"><ArrowUpRight size={13}/>{change}</span>}{warning&&<i className="amber-dot"/>}{foot}</div></section>}
-function InvoiceTable({paid,pay,compact=false}:{paid:string[];pay:(id:string)=>void;compact?:boolean}){return <div className="table-wrap"><table><thead><tr><th>PHÒNG / CĂN HỘ</th><th>NGƯỜI THUÊ</th><th>SỐ TIỀN</th><th>HẠN THANH TOÁN</th><th>TRẠNG THÁI</th><th/></tr></thead><tbody>{tenants.slice(0,compact?2:4).map((t,i)=><tr key={t[0]}><td><span className="room-cell"><span className="table-icon"><DoorOpen size={17}/></span><span><b>{t[1]}</b><small>{t[2]}</small></span></span></td><td>{t[0]}</td><td><b>{money(3950000)}</b></td><td>05/10/2026</td><td><span className={'status '+(paid.includes(String(i))?'':'pending')}>{paid.includes(String(i))?'Đã thanh toán':'Chờ thanh toán'}</span></td><td><button className="text-button" disabled={paid.includes(String(i))} onClick={()=>pay(String(i))}>{paid.includes(String(i))?<Check size={16}/>:'Thu tiền'}</button></td></tr>)}</tbody></table></div>}
+"use client";
+import { useEffect, useState, useCallback } from "react";
+import type { Session } from "@supabase/supabase-js";
+import {
+  Home,
+  LayoutDashboard,
+  Building2,
+  Users,
+  ReceiptText,
+  Settings,
+  Plus,
+  ArrowRight,
+  ArrowUpRight,
+  ChevronRight,
+  ChevronLeft,
+  LogOut,
+  Menu,
+  X,
+  MapPin,
+  DoorOpen,
+  Wallet,
+  TrendingUp,
+  FileText,
+  Download,
+  Check,
+  Search,
+  Upload,
+  Shield,
+  LoaderCircle,
+} from "lucide-react";
+import { supabase } from "../lib/supabase";
+import { Auth, Recovery } from "../components/auth";
+import { DataForm, type Field } from "../components/data-form";
+import dynamic from "next/dynamic";
+const RevenueChart = dynamic(
+  () =>
+    import("../components/revenue-chart").then((module) => module.RevenueChart),
+  {
+    ssr: false,
+    loading: () => <div className="loading">Đang tải biểu đồ...</div>,
+  },
+);
+import {
+  propertySchema,
+  roomSchema,
+  tenantSchema,
+  ratesSchema,
+  invoiceSchema,
+  paymentSchema,
+  inviteSchema,
+  workspaceSchema,
+  contractSchema,
+} from "../lib/forms";
+import {
+  money,
+  balance,
+  currentMonth,
+  localDay,
+  calculateBill,
+  tenantStatus,
+  revenueSeries,
+} from "../lib/business";
+import { loadData, rpc, insert, update, databaseError } from "../lib/data";
+import {
+  emptyData,
+  type Data,
+  type Membership,
+  type Property,
+  type Room,
+  type Tenant,
+  type Invoice,
+  type Contract,
+  type Role,
+} from "../lib/types";
+const roleNames: Record<Role, string> = {
+  admin: "Quản trị viên",
+  manager: "Quản lý",
+  viewer: "Chỉ xem",
+};
+const rateFields: Field[] = [
+  { name: "electricity", label: "Điện (₫/kWh)", type: "number", min: 0 },
+  { name: "water", label: "Nước (₫/m³)", type: "number", min: 0 },
+  { name: "trash", label: "Rác (₫/phòng/tháng)", type: "number", min: 0 },
+  { name: "wifi", label: "Wifi (₫/phòng/tháng)", type: "number", min: 0 },
+  {
+    name: "laundry",
+    label: "Máy giặt (₫/phòng/tháng)",
+    type: "number",
+    min: 0,
+  },
+];
+const propertyFields: Field[] = [
+  { name: "name", label: "Tên căn hộ" },
+  { name: "address", label: "Địa chỉ" },
+  { name: "room_count", label: "Số phòng", type: "number", min: 1, max: 100 },
+  {
+    name: "monthly_rent",
+    label: "Giá thuê căn hộ / tháng (VNĐ)",
+    type: "number",
+    min: 0,
+  },
+];
+const roomFields: Field[] = [
+  { name: "name", label: "Tên phòng" },
+  {
+    name: "monthly_rent",
+    label: "Giá thuê phòng / tháng (VNĐ)",
+    type: "number",
+    min: 0,
+  },
+];
+export default function Page() {
+  const [session, setSession] = useState<Session | null>(null),
+    [ready, setReady] = useState(false),
+    [recovery, setRecovery] = useState(false),
+    [authError, setAuthError] = useState("");
+  useEffect(() => {
+    if (!supabase) {
+      setReady(true);
+      return;
+    }
+    let alive = true;
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event, next) => {
+      if (!alive) return;
+      setSession(next);
+      setReady(true);
+      if (event === "PASSWORD_RECOVERY") setRecovery(true);
+    });
+    supabase.auth
+      .getSession()
+      .then(({ data, error }) => {
+        if (!alive) return;
+        if (error)
+          setAuthError(
+            "Không thể khôi phục phiên đăng nhập. Vui lòng thử lại.",
+          );
+        setSession(data.session);
+        setRecovery(new URLSearchParams(location.search).has("recovery"));
+        setReady(true);
+      })
+      .catch(() => {
+        if (alive) {
+          setAuthError("Không thể kết nối dịch vụ đăng nhập.");
+          setReady(true);
+        }
+      });
+    return () => {
+      alive = false;
+      subscription.unsubscribe();
+    };
+  }, []);
+  if (!supabase)
+    return (
+      <div className="auth-page">
+        <section className="auth-card setup-card">
+          <span className="brand-icon">
+            <Home size={25} />
+          </span>
+          <div className="eyebrow">HH HOME</div>
+          <h1>Kết nối không gian của bạn</h1>
+          <p>
+            Ứng dụng đã sẵn sàng cho dữ liệu thật. Hãy cấu hình Supabase để bắt
+            đầu đăng nhập và quản lý căn hộ.
+          </p>
+          <ol>
+            <li>Tạo dự án Supabase.</li>
+            <li>
+              Chạy migration trong thư mục <code>supabase/migrations</code>.
+            </li>
+            <li>
+              Điền Project URL và publishable/anon key vào{" "}
+              <code>.env.local</code> theo <code>.env.example</code>, rồi khởi
+              động lại ứng dụng.
+            </li>
+          </ol>
+          <p>
+            Hướng dẫn chi tiết có trong README của repository. Chưa có dữ liệu
+            căn hộ, người thuê hay hóa đơn.
+          </p>
+        </section>
+      </div>
+    );
+  if (!ready) return <Loading label="Đang kiểm tra phiên đăng nhập..." />;
+  if (!session)
+    return (
+      <>
+        {authError && <div className="banner error">{authError}</div>}
+        <Auth />
+      </>
+    );
+  if (recovery) return <Recovery done={() => setRecovery(false)} />;
+  return <Workspace key={session.user.id} session={session} />;
+}
+function Workspace({ session }: { session: Session }) {
+  const [memberships, setMemberships] = useState<Membership[]>([]),
+    [orgNames, setOrgNames] = useState<Record<string, string>>({}),
+    [org, setOrg] = useState(""),
+    [data, setData] = useState<Data>(emptyData),
+    [loading, setLoading] = useState(true),
+    [error, setError] = useState(""),
+    [page, setPage] = useState("dashboard"),
+    [propertyId, setPropertyId] = useState(""),
+    [roomId, setRoomId] = useState(""),
+    [modal, setModal] = useState(""),
+    [search, setSearch] = useState(""),
+    [period, setPeriod] = useState(currentMonth()),
+    [mobile, setMobile] = useState(false),
+    [toast, setToast] = useState(""),
+    [tenant, setTenant] = useState<Tenant | null>(null),
+    [invoice, setInvoice] = useState<Invoice | null>(null),
+    [chartProperty, setChartProperty] = useState(""),
+    [busy, setBusy] = useState(false);
+  const member =
+    data.members.find((m) => m.user_id === session.user.id) ||
+    memberships.find((m) => m.organization_id === org);
+  const canWrite = member?.role === "admin" || member?.role === "manager";
+  const admin = member?.role === "admin";
+  const name =
+    member?.display_name ||
+    String(session.user.user_metadata.display_name || session.user.email || "");
+  const property = data.properties.find((p) => p.id === propertyId),
+    room = data.rooms.find((r) => r.id === roomId);
+  const notify = (s: string) => setToast(s);
+  useEffect(() => {
+    if (!toast) return;
+    const timer = setTimeout(() => setToast(""), 4500);
+    return () => clearTimeout(timer);
+  }, [toast]);
+  const refreshMemberships = useCallback(async () => {
+    const { data: result, error } = await supabase!
+      .from("memberships")
+      .select("*")
+      .eq("user_id", session.user.id)
+      .order("organization_id");
+    if (error) throw databaseError(error);
+    const organizations = await supabase!
+      .from("organizations")
+      .select("id,name");
+    if (organizations.error) throw databaseError(organizations.error);
+    setOrgNames(
+      Object.fromEntries(organizations.data.map((o) => [o.id, o.name])),
+    );
+    setMemberships(result as Membership[]);
+    setOrg((current) =>
+      result.some((m) => m.organization_id === current)
+        ? current
+        : result[0]?.organization_id || "",
+    );
+    return result as Membership[];
+  }, [session.user.id]);
+  useEffect(() => {
+    let active = true;
+    setLoading(true);
+    refreshMemberships()
+      .catch((e) => {
+        if (active) setError(e.message);
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [refreshMemberships]);
+  const orgRole = memberships.find((m) => m.organization_id === org)?.role;
+  useEffect(() => {
+    if (!org) return;
+    let active = true;
+    setLoading(true);
+    setData(emptyData);
+    setError("");
+    loadData(org, orgRole === "admin")
+      .then((d) => {
+        if (active) setData(d);
+      })
+      .catch((e) => {
+        if (active) setError(e.message);
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [org, orgRole]);
+  const refresh = async () => {
+    const next = await refreshMemberships();
+    const membership = next.find((m) => m.organization_id === org) || next[0];
+    if (!membership) {
+      setData(emptyData);
+      return;
+    }
+    setData(
+      await loadData(membership.organization_id, membership.role === "admin"),
+    );
+  };
+  const save = async (operation: () => Promise<unknown>, message: string) => {
+    setBusy(true);
+    try {
+      await operation();
+      setModal("");
+      try {
+        await refresh();
+        notify(message);
+      } catch (e) {
+        setError(
+          "Đã lưu, nhưng chưa tải lại được dữ liệu. " +
+            (e instanceof Error ? e.message : ""),
+        );
+      }
+    } finally {
+      setBusy(false);
+    }
+  };
+  const act = async (operation: () => Promise<unknown>, message: string) => {
+    setBusy(true);
+    setError("");
+    try {
+      await save(operation, message);
+    } catch (e) {
+      setError(
+        e instanceof Error ? e.message : "Không thể thực hiện thao tác.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
+  const nav = [
+    ["dashboard", "Tổng quan", LayoutDashboard],
+    ["properties", "Căn hộ", Building2],
+    ["tenants", "Người thuê", Users],
+    ["invoices", "Hóa đơn", ReceiptText],
+    ["settings", "Cài đặt", Settings],
+  ] as const;
+  const navigate = (next: string) => {
+    setPage(next);
+    setMobile(false);
+    setSearch("");
+  };
+  const openProperty = (p: Property) => {
+    setPropertyId(p.id);
+    navigate("property");
+  };
+  const openRoom = (r: Room) => {
+    setRoomId(r.id);
+    navigate("room");
+  };
+  const propertyRooms = (id: string) =>
+    data.rooms.filter((r) => r.property_id === id);
+  const activeTenants = (id: string) =>
+    data.tenants.filter(
+      (t) => t.room_id === id && tenantStatus(t) === "Đang ở",
+    );
+  const occupied = data.rooms.filter(
+    (r) => activeTenants(r.id).length > 0,
+  ).length;
+  const outstanding = data.invoices.filter((i) => i.period.startsWith(period));
+  const pending = outstanding.filter((i) => balance(i, data.payments) > 0);
+  const income = (roomIds?: string[]) =>
+    revenueSeries(period.slice(0, 4), data.invoices, data.payments, roomIds)[
+      Number(period.slice(5)) - 1
+    ]?.revenue || 0;
+  const previous = room
+    ? data.invoices
+        .filter((i) => i.room_id === room.id)
+        .sort((a, b) => b.period.localeCompare(a.period))[0]
+    : null;
+  const titles: Record<string, string> = {
+    dashboard: "Tổng quan",
+    properties: "Căn hộ của bạn",
+    property: property?.name || "Căn hộ",
+    room: room?.name || "Phòng",
+    tenants: "Người thuê",
+    invoices: "Hóa đơn & thu tiền",
+    settings: "Cài đặt",
+  };
+  const tenantFields: Field[] = [
+    {
+      name: "room_id",
+      label: "Phòng",
+      options: data.rooms.map((r) => ({
+        value: r.id,
+        label: `${data.properties.find((p) => p.id === r.property_id)?.name} · ${r.name}`,
+      })),
+    },
+    { name: "full_name", label: "Họ tên" },
+    {
+      name: "gender",
+      label: "Giới tính",
+      options: ["Nam", "Nữ", "Khác"].map((g) => ({ value: g, label: g })),
+    },
+    { name: "birth_date", label: "Ngày sinh", type: "date" },
+    { name: "identity_number", label: "Số CCCD (12 chữ số)" },
+    { name: "phone", label: "Số điện thoại" },
+    { name: "email", label: "Email (không bắt buộc)", type: "email" },
+    { name: "move_in", label: "Ngày vào ở", type: "date" },
+  ];
+  const logout = async () => {
+    setBusy(true);
+    const { error } = await supabase!.auth.signOut();
+    if (error) {
+      setError("Không thể đăng xuất. Vui lòng thử lại.");
+      setBusy(false);
+    }
+  };
+  if (!org && loading)
+    return <Loading label="Đang tải không gian quản lý..." />;
+  if (!org)
+    return (
+      <div className="auth-page">
+        <section className="auth-card setup-card">
+          <h1>Không gian quản lý đầu tiên</h1>
+          <p>
+            Tạo không gian mới, hoặc nhận quyền truy cập được quản trị viên cấp
+            cho email của bạn.
+          </p>
+          {error && (
+            <p className="form-error" role="alert">
+              {error}
+            </p>
+          )}
+          <DataForm
+            schema={workspaceSchema}
+            fields={[
+              { name: "workspace_name", label: "Tên không gian quản lý" },
+              { name: "member_name", label: "Họ tên của bạn" },
+            ]}
+            defaults={{
+              workspace_name: "HH HOME",
+              member_name: String(
+                session.user.user_metadata.display_name || "",
+              ),
+            }}
+            submit="Tạo không gian"
+            onSubmit={async (v) => {
+              await rpc("create_workspace", v);
+              await refreshMemberships();
+            }}
+          />
+          <button
+            className="secondary wide"
+            disabled={busy}
+            onClick={() =>
+              act(async () => {
+                const n = await rpc("accept_invitations", {
+                  member_name: String(
+                    session.user.user_metadata.display_name ||
+                      session.user.email,
+                  ),
+                });
+                if (!n)
+                  throw new Error(
+                    "Chưa có lời mời cho email " + session.user.email,
+                  );
+                await refreshMemberships();
+              }, "Đã nhận quyền truy cập")
+            }
+          >
+            Nhận lời mời cho {session.user.email}
+          </button>
+          <button className="text-button wide" disabled={busy} onClick={logout}>
+            Đăng xuất
+          </button>
+        </section>
+      </div>
+    );
+  return (
+    <div className="app">
+      <aside className={"sidebar " + (mobile ? "open" : "")}>
+        <a className="brand" onClick={() => navigate("dashboard")}>
+          <span className="brand-icon">
+            <Home size={23} />
+          </span>
+          <span>
+            HH HOME<span className="brand-sub">PROPERTY MANAGEMENT</span>
+          </span>
+        </a>
+        <div className="workspace">
+          <div className="workspace-icon">H</div>
+          <div>
+            <label htmlFor="workspace">Không gian quản lý</label>
+            <select
+              id="workspace"
+              value={org}
+              disabled={loading || busy}
+              onChange={(e) => {
+                setOrg(e.target.value);
+                setPage("dashboard");
+                setPropertyId("");
+                setRoomId("");
+                setModal("");
+                setChartProperty("");
+              }}
+            >
+              {memberships.map((m) => (
+                <option key={m.organization_id} value={m.organization_id}>
+                  {orgNames[m.organization_id] || "Không gian quản lý"} ·{" "}
+                  {roleNames[m.role]}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+        <div className="nav-label">KHÔNG GIAN LÀM VIỆC</div>
+        <nav>
+          {nav.map(([id, label, Icon]) => (
+            <button
+              key={id}
+              className={
+                page === id ||
+                (id === "properties" && ["property", "room"].includes(page))
+                  ? "active"
+                  : ""
+              }
+              onClick={() => navigate(id)}
+            >
+              <Icon size={19} />
+              {label}
+              {id === "properties" && (
+                <span className="nav-count">{data.properties.length}</span>
+              )}
+            </button>
+          ))}
+        </nav>
+        <div className="side-bottom">
+          <div className="help-card">
+            <Shield size={20} />
+            <b>{member ? roleNames[member.role] : "Đang tải quyền"}</b>
+            <p>
+              {canWrite
+                ? "Quản lý căn hộ và thu tiền."
+                : "Bạn có thể xem dữ liệu và hợp đồng."}
+              <br />
+              Dữ liệu được bảo vệ theo tài khoản.
+            </p>
+          </div>
+          <button className="profile" onClick={logout} disabled={busy}>
+            <span className="avatar">
+              {name
+                .split(" ")
+                .slice(-2)
+                .map((s) => s[0])
+                .join("")
+                .slice(0, 2)}
+            </span>
+            <span>
+              <b>{name}</b>
+              <small>Đăng xuất</small>
+            </span>
+            <LogOut size={17} />
+          </button>
+        </div>
+      </aside>
+      <div className="main">
+        <header>
+          <div className="breadcrumb">
+            <button
+              className="mobile-menu"
+              aria-label="Mở menu"
+              onClick={() => setMobile(!mobile)}
+            >
+              <Menu size={22} />
+            </button>
+            <span>Không gian làm việc</span>
+            <ChevronRight size={14} />
+            <b>{titles[page]}</b>
+          </div>
+          <div className="header-right">
+            <span className="demo">{member ? roleNames[member.role] : ""}</span>
+            <Shield size={18} />
+          </div>
+        </header>
+        <main>
+          <div className="page-heading">
+            <div>
+              {["property", "room"].includes(page) && (
+                <button
+                  className="back"
+                  onClick={() =>
+                    navigate(page === "room" ? "property" : "properties")
+                  }
+                >
+                  <ChevronLeft size={15} /> Quay lại
+                </button>
+              )}
+              <div className="eyebrow">HH HOME · CHĂM SÓC TỪNG MÁI NHÀ</div>
+              <h1>
+                {page === "dashboard"
+                  ? `Xin chào, ${name.split(" ").slice(-1)[0]}`
+                  : titles[page]}
+              </h1>
+              <p>
+                {page === "dashboard"
+                  ? "Theo dõi hoạt động và doanh thu thực thu của các căn hộ."
+                  : page === "property"
+                    ? property?.address
+                    : page === "room"
+                      ? `${property?.name || ""} · Hồ sơ, hợp đồng và hóa đơn`
+                      : page === "settings"
+                        ? "Thiết lập đơn giá và quyền truy cập không gian quản lý."
+                        : "Quản lý thông tin và hoạt động của HH HOME."}
+              </p>
+            </div>
+            <div className="heading-actions">
+              <label className="period">
+                Kỳ xem
+                <input
+                  aria-label="Kỳ xem"
+                  type="month"
+                  value={period}
+                  onChange={(e) => {
+                    if (e.target.value) setPeriod(e.target.value);
+                  }}
+                />
+              </label>
+              {page === "properties" && canWrite && (
+                <button
+                  className="primary"
+                  disabled={loading}
+                  onClick={() => setModal("property")}
+                >
+                  <Plus size={17} /> Thêm căn hộ
+                </button>
+              )}
+            </div>
+          </div>
+          {error && (
+            <div className="banner error" role="alert">
+              {error}
+              <button
+                onClick={() => {
+                  setLoading(true);
+                  refresh()
+                    .then(() => setError(""))
+                    .catch((e) => setError(e.message))
+                    .finally(() => setLoading(false));
+                }}
+              >
+                Tải lại
+              </button>
+            </div>
+          )}
+          {loading ? (
+            <Loading label="Đang tải dữ liệu..." />
+          ) : (
+            <>
+              {page === "dashboard" && (
+                <>
+                  <div className="stats">
+                    <Stat
+                      label="Doanh thu thực thu"
+                      value={money(income())}
+                      icon={<Wallet size={21} />}
+                      foot={`Tiền nhận trong tháng ${period.slice(5)}`}
+                    />
+                    <Stat
+                      label="Căn hộ đang quản lý"
+                      value={String(data.properties.length)}
+                      icon={<Building2 size={21} />}
+                      foot={`${data.rooms.length} phòng trong hệ thống`}
+                    />
+                    <Stat
+                      label="Tỷ lệ lấp đầy"
+                      value={
+                        (data.rooms.length
+                          ? (occupied / data.rooms.length) * 100
+                          : 0
+                        ).toLocaleString("vi-VN", {
+                          maximumFractionDigits: 1,
+                        }) + "%"
+                      }
+                      icon={<DoorOpen size={21} />}
+                      foot={`${occupied} / ${data.rooms.length} phòng đang thuê`}
+                    />
+                    <Stat
+                      label="Còn phải thu trong kỳ"
+                      value={money(
+                        pending.reduce(
+                          (s, i) => s + balance(i, data.payments),
+                          0,
+                        ),
+                      )}
+                      icon={<ReceiptText size={21} />}
+                      foot={`${pending.length} hóa đơn chưa thu đủ`}
+                    />
+                  </div>
+                  <div className="analytics">
+                    <section className="panel revenue">
+                      <div className="panel-heading">
+                        <div>
+                          <h2>Doanh thu theo tháng · {period.slice(0, 4)}</h2>
+                          <p>Theo ngày thanh toán thực tế, giờ Việt Nam</p>
+                        </div>
+                        <select
+                          aria-label="Lọc doanh thu theo căn hộ"
+                          className="chart-filter"
+                          value={chartProperty}
+                          onChange={(e) => setChartProperty(e.target.value)}
+                        >
+                          <option value="">Tất cả căn hộ</option>
+                          {data.properties.map((p) => (
+                            <option key={p.id} value={p.id}>
+                              {p.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <RevenueChart
+                        data={revenueSeries(
+                          period.slice(0, 4),
+                          data.invoices,
+                          data.payments,
+                          chartProperty
+                            ? propertyRooms(chartProperty).map((r) => r.id)
+                            : undefined,
+                        )}
+                      />
+                    </section>
+                    <section className="panel occupancy">
+                      <div className="panel-heading">
+                        <div>
+                          <h2>Tình trạng phòng</h2>
+                          <p>Trạng thái người thuê hiện tại</p>
+                        </div>
+                        <DoorOpen size={19} />
+                      </div>
+                      <div
+                        className="donut"
+                        style={{
+                          background: `conic-gradient(#2d6b52 0 ${data.rooms.length ? (occupied / data.rooms.length) * 100 : 0}%, #e7edde 0 100%)`,
+                        }}
+                      >
+                        <div>
+                          <b>{data.rooms.length}</b>
+                          <span>Tổng số phòng</span>
+                        </div>
+                      </div>
+                      <div className="occupancy-legend">
+                        <div>
+                          <i className="green" />
+                          Đang thuê <b>{occupied} phòng</b>
+                        </div>
+                        <div>
+                          <i className="pale" />
+                          Còn trống <b>{data.rooms.length - occupied} phòng</b>
+                        </div>
+                      </div>
+                    </section>
+                  </div>
+                </>
+              )}
+              {["dashboard", "properties"].includes(page) && (
+                <section className="property-section">
+                  <div className="section-heading">
+                    <div>
+                      <h2>
+                        Căn hộ của bạn{" "}
+                        <span className="badge">{data.properties.length}</span>
+                      </h2>
+                      <p>Mỗi căn hộ, một mái nhà được chăm sóc.</p>
+                    </div>
+                    {page === "dashboard" ? (
+                      <button
+                        className="text-button"
+                        onClick={() => navigate("properties")}
+                      >
+                        Xem tất cả <ArrowRight size={16} />
+                      </button>
+                    ) : (
+                      <label className="search">
+                        <Search size={17} />
+                        <input
+                          value={search}
+                          onChange={(e) => setSearch(e.target.value)}
+                          placeholder="Tìm căn hộ..."
+                        />
+                      </label>
+                    )}
+                  </div>
+                  <div className="property-grid">
+                    {data.properties
+                      .filter((p) =>
+                        (p.name + " " + p.address)
+                          .toLocaleLowerCase()
+                          .includes(search.toLocaleLowerCase()),
+                      )
+                      .map((p) => {
+                        const rooms = propertyRooms(p.id),
+                          occupied = rooms.filter(
+                            (r) => activeTenants(r.id).length,
+                          ).length;
+                        return (
+                          <button
+                            key={p.id}
+                            className="property-card"
+                            onClick={() => openProperty(p)}
+                          >
+                            <div className="property-image property-placeholder">
+                              <Building2 size={68} />
+                              <span className="image-arrow">
+                                <ArrowUpRight size={18} />
+                              </span>
+                              <span className="image-title">{p.name}</span>
+                            </div>
+                            <div className="property-content">
+                              <div className="address">
+                                <MapPin size={14} />
+                                {p.address}
+                              </div>
+                              <div className="property-numbers">
+                                <span>
+                                  <DoorOpen size={15} />
+                                  <b>
+                                    {occupied}/{rooms.length}
+                                  </b>{" "}
+                                  phòng đã thuê
+                                </span>
+                                <strong>
+                                  {money(income(rooms.map((r) => r.id)))}
+                                </strong>
+                              </div>
+                              <div className="progress">
+                                <i
+                                  style={{
+                                    width:
+                                      (rooms.length
+                                        ? (occupied / rooms.length) * 100
+                                        : 0) + "%",
+                                  }}
+                                />
+                              </div>
+                              <div className="property-foot">
+                                <span>
+                                  Thuê căn hộ: {money(p.monthly_rent)}/tháng
+                                </span>
+                                <span>
+                                  Chi tiết <ArrowRight size={13} />
+                                </span>
+                              </div>
+                            </div>
+                          </button>
+                        );
+                      })}
+                  </div>
+                  {!data.properties.length ? (
+                    <Empty
+                      title="Chưa có căn hộ"
+                      detail={
+                        canWrite
+                          ? "Mở trang Căn hộ và chọn “Thêm căn hộ” để bắt đầu."
+                          : "Quản trị viên hoặc quản lý sẽ thêm căn hộ cho không gian này."
+                      }
+                    />
+                  ) : (
+                    search &&
+                    !data.properties.some((p) =>
+                      (p.name + " " + p.address)
+                        .toLowerCase()
+                        .includes(search.toLowerCase()),
+                    ) && (
+                      <Empty
+                        title="Không tìm thấy căn hộ"
+                        detail="Hãy thử tên hoặc địa chỉ khác."
+                      />
+                    )
+                  )}
+                </section>
+              )}
+              {page === "dashboard" && (
+                <section className="panel payments">
+                  <div className="panel-heading">
+                    <div>
+                      <h2>Hóa đơn chưa thu đủ</h2>
+                      <p>Kỳ {period}</p>
+                    </div>
+                    <button
+                      className="text-button"
+                      onClick={() => navigate("invoices")}
+                    >
+                      Xem hóa đơn <ArrowRight size={16} />
+                    </button>
+                  </div>
+                  <Invoices
+                    invoices={pending}
+                    data={data}
+                    canWrite={canWrite}
+                    pay={(i) => {
+                      setInvoice(i);
+                      setModal("payment");
+                    }}
+                    detail={(i) => {
+                      setInvoice(i);
+                      setModal("invoice-detail");
+                    }}
+                  />
+                </section>
+              )}
+              {page === "property" && property && (
+                <>
+                  <div className="stats three">
+                    <Stat
+                      label="Giá thuê căn hộ / tháng"
+                      value={money(property.monthly_rent)}
+                      icon={<Wallet size={21} />}
+                      foot="Chi phí thuê nguyên căn"
+                    />
+                    <Stat
+                      label="Số phòng"
+                      value={String(propertyRooms(property.id).length)}
+                      icon={<DoorOpen size={21} />}
+                      foot="Phòng thuộc căn hộ"
+                    />
+                    <Stat
+                      label="Doanh thu thực thu"
+                      value={money(
+                        income(propertyRooms(property.id).map((r) => r.id)),
+                      )}
+                      icon={<TrendingUp size={21} />}
+                      foot={`Kỳ ${period}`}
+                    />
+                  </div>
+                  <div className="section-heading">
+                    <div>
+                      <h2>Danh sách phòng</h2>
+                      <p>Đặt tên và giá thuê riêng cho từng phòng.</p>
+                    </div>
+                    {canWrite && (
+                      <button
+                        className="primary"
+                        onClick={() => setModal("room-add")}
+                      >
+                        <Plus size={17} /> Thêm phòng
+                      </button>
+                    )}
+                  </div>
+                  <div className="rooms">
+                    {propertyRooms(property.id)
+                      .sort((a, b) =>
+                        a.name.localeCompare(b.name, "vi", { numeric: true }),
+                      )
+                      .map((r) => (
+                        <button
+                          className="room-card"
+                          key={r.id}
+                          onClick={() => openRoom(r)}
+                        >
+                          <div>
+                            <span className="room-icon">
+                              <DoorOpen size={23} />
+                            </span>
+                            <span
+                              className={
+                                "status " +
+                                (!activeTenants(r.id).length ? "vacant" : "")
+                              }
+                            >
+                              {activeTenants(r.id).length
+                                ? "Đang thuê"
+                                : "Còn trống"}
+                            </span>
+                          </div>
+                          <h2>{r.name}</h2>
+                          <p>
+                            {activeTenants(r.id).length
+                              ? `${activeTenants(r.id).length} người đang ở`
+                              : "Chưa có người thuê"}
+                          </p>
+                          <div className="room-foot">
+                            <b>{money(r.monthly_rent)}/tháng</b>
+                            <ArrowRight size={17} />
+                          </div>
+                        </button>
+                      ))}
+                  </div>
+                </>
+              )}
+              {page === "room" && room && (
+                <div className="room-layout">
+                  <div>
+                    <section className="panel">
+                      <div className="panel-heading">
+                        <div>
+                          <h2>{room.name}</h2>
+                          <p>Giá thuê: {money(room.monthly_rent)}/tháng</p>
+                        </div>
+                        {canWrite && (
+                          <button
+                            className="secondary"
+                            onClick={() => setModal("room-edit")}
+                          >
+                            Sửa phòng
+                          </button>
+                        )}
+                      </div>
+                      <div className="panel-heading">
+                        <h2>Người thuê ({activeTenants(room.id).length})</h2>
+                        {canWrite && (
+                          <button
+                            className="text-button"
+                            onClick={() => {
+                              setTenant(null);
+                              setModal("tenant-add");
+                            }}
+                          >
+                            <Plus size={15} /> Thêm người thuê
+                          </button>
+                        )}
+                      </div>
+                      {activeTenants(room.id).map((t) => (
+                        <button
+                          key={t.id}
+                          className="tenant-row"
+                          onClick={() => {
+                            setTenant(t);
+                            setModal("tenant-detail");
+                          }}
+                        >
+                          <span className="avatar">
+                            {t.full_name
+                              .split(" ")
+                              .slice(-2)
+                              .map((s) => s[0])
+                              .join("")}
+                          </span>
+                          <span>
+                            <b>{t.full_name}</b>
+                            <small>
+                              Ngày vào ở{" "}
+                              {new Date(t.move_in).toLocaleDateString("vi-VN")}
+                            </small>
+                          </span>
+                          <ChevronRight size={17} />
+                        </button>
+                      ))}
+                      {!activeTenants(room.id).length && (
+                        <Empty
+                          title="Chưa có người thuê"
+                          detail="Thêm hồ sơ khi có người vào ở."
+                        />
+                      )}
+                    </section>
+                    <section className="panel contracts-panel">
+                      <div className="panel-heading">
+                        <div>
+                          <h2>Hợp đồng thuê</h2>
+                          <p>PDF, JPG hoặc PNG · tối đa 10 MB</p>
+                        </div>
+                        {canWrite && (
+                          <button
+                            className="secondary"
+                            onClick={() => setModal("contract")}
+                          >
+                            <Upload size={15} /> Tải lên
+                          </button>
+                        )}
+                      </div>
+                      {data.contracts
+                        .filter((c) => c.room_id === room.id)
+                        .map((c) => (
+                          <div className="contract" key={c.id}>
+                            <FileText size={25} />
+                            <div>
+                              <b>{c.file_name}</b>
+                              <small>
+                                {c.starts_on} – {c.ends_on}
+                              </small>
+                            </div>
+                            <button
+                              className="secondary"
+                              disabled={busy}
+                              onClick={() => viewContract(c, setError, setBusy)}
+                            >
+                              Xem
+                            </button>
+                          </div>
+                        ))}
+                      {!data.contracts.some((c) => c.room_id === room.id) && (
+                        <Empty
+                          title="Chưa có hợp đồng"
+                          detail="Tải hợp đồng đã ký để lưu cùng phòng."
+                        />
+                      )}
+                    </section>
+                  </div>
+                  <section className="panel bill">
+                    <div className="panel-heading">
+                      <div>
+                        <h2>Lập hóa đơn</h2>
+                        <p>Đơn giá được chốt theo thời điểm lập.</p>
+                      </div>
+                      <ReceiptText size={19} />
+                    </div>
+                    {canWrite && data.rates ? (
+                      <InvoiceForm
+                        key={room.id + period + (previous?.id || "")}
+                        period={period}
+                        previous={previous || null}
+                        room={room}
+                        rates={data.rates}
+                        onSubmit={(v) =>
+                          save(
+                            () =>
+                              rpc("create_invoice", {
+                                org,
+                                target_room: room.id,
+                                invoice_period: String(v.period) + "-01",
+                                deadline: v.due_date,
+                                e_old: v.electricity_old,
+                                e_new: v.electricity_new,
+                                w_old: v.water_old,
+                                w_new: v.water_new,
+                              }),
+                            "Đã lập hóa đơn",
+                          )
+                        }
+                      />
+                    ) : (
+                      <Empty
+                        title={canWrite ? "Chưa có đơn giá" : "Quyền chỉ xem"}
+                        detail={
+                          canWrite
+                            ? "Thiết lập đơn giá trong Cài đặt trước khi lập hóa đơn."
+                            : "Bạn có thể xem hóa đơn tại trang Hóa đơn."
+                        }
+                      />
+                    )}
+                  </section>
+                </div>
+              )}
+              {page === "tenants" && (
+                <section className="panel">
+                  <div className="panel-heading">
+                    <h2>Danh sách người thuê</h2>
+                    <div className="heading-actions">
+                      <label className="search">
+                        <Search size={17} />
+                        <input
+                          placeholder="Tìm người thuê..."
+                          value={search}
+                          onChange={(e) => setSearch(e.target.value)}
+                        />
+                      </label>
+                      {canWrite && (
+                        <button
+                          className="secondary"
+                          disabled={!data.rooms.length}
+                          onClick={() => {
+                            setTenant(null);
+                            setModal("tenant-add");
+                          }}
+                        >
+                          <Plus size={15} /> Thêm người thuê
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                  {data.tenants.length ? (
+                    <div className="table-wrap">
+                      <table>
+                        <thead>
+                          <tr>
+                            <th>NGƯỜI THUÊ</th>
+                            <th>PHÒNG / CĂN HỘ</th>
+                            <th>SỐ ĐIỆN THOẠI</th>
+                            <th>TRẠNG THÁI</th>
+                            <th />
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {data.tenants
+                            .filter((t) =>
+                              (t.full_name + " " + t.phone)
+                                .toLowerCase()
+                                .includes(search.toLowerCase()),
+                            )
+                            .map((t) => {
+                              const r = data.rooms.find(
+                                (r) => r.id === t.room_id,
+                              );
+                              return (
+                                <tr key={t.id}>
+                                  <td>{t.full_name}</td>
+                                  <td>
+                                    {r?.name} ·{" "}
+                                    {
+                                      data.properties.find(
+                                        (p) => p.id === r?.property_id,
+                                      )?.name
+                                    }
+                                  </td>
+                                  <td>{t.phone}</td>
+                                  <td>
+                                    <span
+                                      className={
+                                        "status " +
+                                        (tenantStatus(t) !== "Đang ở"
+                                          ? "vacant"
+                                          : "")
+                                      }
+                                    >
+                                      {tenantStatus(t)}
+                                    </span>
+                                  </td>
+                                  <td>
+                                    <button
+                                      className="text-button"
+                                      onClick={() => {
+                                        setTenant(t);
+                                        setModal("tenant-detail");
+                                      }}
+                                    >
+                                      Chi tiết <ArrowRight size={14} />
+                                    </button>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <Empty
+                      title="Chưa có người thuê"
+                      detail="Thêm căn hộ và phòng, sau đó nhập hồ sơ người thuê."
+                    />
+                  )}
+                </section>
+              )}
+              {page === "invoices" && (
+                <section className="panel">
+                  <div className="panel-heading">
+                    <div>
+                      <h2>Hóa đơn kỳ {period}</h2>
+                      <p>
+                        Tiền thực thu được thống kê theo ngày ghi nhận thanh
+                        toán.
+                      </p>
+                    </div>
+                    <button
+                      className="secondary"
+                      disabled={!outstanding.length}
+                      onClick={() => exportInvoices(outstanding, data)}
+                    >
+                      <Download size={16} /> Xuất CSV
+                    </button>
+                  </div>
+                  <Invoices
+                    invoices={outstanding}
+                    data={data}
+                    canWrite={canWrite}
+                    pay={(i) => {
+                      setInvoice(i);
+                      setModal("payment");
+                    }}
+                    detail={(i) => {
+                      setInvoice(i);
+                      setModal("invoice-detail");
+                    }}
+                  />
+                </section>
+              )}
+              {page === "settings" && (
+                <>
+                  <section className="panel settings">
+                    <div className="panel-heading">
+                      <div>
+                        <h2>Đơn giá dịch vụ</h2>
+                        <p>
+                          Các khoản rác, wifi, máy giặt tính theo phòng mỗi
+                          tháng. Hóa đơn cũ giữ nguyên đơn giá.
+                        </p>
+                      </div>
+                    </div>
+                    {canWrite ? (
+                      <DataForm
+                        key={JSON.stringify(data.rates)}
+                        schema={ratesSchema}
+                        fields={rateFields}
+                        defaults={
+                          data.rates
+                            ? { ...data.rates }
+                            : {
+                                electricity: "",
+                                water: "",
+                                trash: "",
+                                wifi: "",
+                                laundry: "",
+                              }
+                        }
+                        submit="Lưu đơn giá"
+                        onSubmit={(v) =>
+                          save(async () => {
+                            const { error } = await supabase!
+                              .from("service_rates")
+                              .upsert({
+                                ...v,
+                                organization_id: org,
+                                updated_at: new Date().toISOString(),
+                              });
+                            if (error) throw databaseError(error);
+                          }, "Đã lưu đơn giá")
+                        }
+                      />
+                    ) : (
+                      <div className="detail-list rate-list">
+                        {rateFields.map((f) => (
+                          <div key={f.name}>
+                            <span>{f.label}</span>
+                            <b>
+                              {money(
+                                Number(
+                                  data.rates?.[
+                                    f.name as keyof typeof data.rates
+                                  ] || 0,
+                                ),
+                              )}
+                            </b>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </section>
+                  <section className="panel team-panel">
+                    <div className="panel-heading">
+                      <div>
+                        <h2>Thành viên & phân quyền</h2>
+                        <p>
+                          Quản trị viên cấp quyền bằng email. Người được cấp
+                          đăng ký bằng đúng email và chọn nhận lời mời.
+                        </p>
+                      </div>
+                      {admin && (
+                        <button
+                          className="secondary"
+                          onClick={() => setModal("invite")}
+                        >
+                          <Plus size={15} /> Cấp quyền
+                        </button>
+                      )}
+                    </div>
+                    <div className="table-wrap">
+                      <table>
+                        <thead>
+                          <tr>
+                            <th>THÀNH VIÊN</th>
+                            <th>EMAIL</th>
+                            <th>VAI TRÒ</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {data.members.map((m) => (
+                            <tr key={m.user_id}>
+                              <td>{m.display_name}</td>
+                              <td>{m.email}</td>
+                              <td>
+                                {admin ? (
+                                  <select
+                                    aria-label={`Vai trò của ${m.display_name}`}
+                                    value={m.role}
+                                    disabled={busy}
+                                    onChange={(e) =>
+                                      act(
+                                        () =>
+                                          rpc("set_member_role", {
+                                            org,
+                                            target_user: m.user_id,
+                                            new_role: e.target.value,
+                                          }),
+                                        "Đã cập nhật vai trò",
+                                      )
+                                    }
+                                  >
+                                    {Object.entries(roleNames).map(
+                                      ([value, label]) => (
+                                        <option key={value} value={value}>
+                                          {label}
+                                        </option>
+                                      ),
+                                    )}
+                                  </select>
+                                ) : (
+                                  roleNames[m.role]
+                                )}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                    {admin && data.invitations.length > 0 && (
+                      <div className="invitations">
+                        <h3>Đang chờ nhận quyền</h3>
+                        {data.invitations.map((i) => (
+                          <div className="bill-line" key={i.id}>
+                            <span>
+                              {i.email} · {roleNames[i.role]}
+                            </span>
+                            <button
+                              className="text-button"
+                              disabled={busy}
+                              onClick={() =>
+                                act(async () => {
+                                  const { error } = await supabase!
+                                    .from("invitations")
+                                    .delete()
+                                    .eq("id", i.id)
+                                    .eq("organization_id", org);
+                                  if (error) throw databaseError(error);
+                                }, "Đã hủy lời mời")
+                              }
+                            >
+                              Hủy
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    <div className="team-actions">
+                      <button
+                        className="secondary"
+                        disabled={busy}
+                        onClick={() =>
+                          act(async () => {
+                            const n = await rpc("accept_invitations", {
+                              member_name: name,
+                            });
+                            if (!n)
+                              throw new Error(
+                                "Chưa có lời mời mới cho tài khoản này",
+                              );
+                          }, "Đã nhận quyền truy cập mới")
+                        }
+                      >
+                        Nhận lời mời mới
+                      </button>
+                    </div>
+                  </section>
+                </>
+              )}
+            </>
+          )}
+          <footer>
+            <span>
+              © {new Date().getFullYear()} HH HOME. Chăm sóc từng mái nhà.
+            </span>
+            <span>
+              <i /> Không gian riêng tư · {member ? roleNames[member.role] : ""}
+            </span>
+          </footer>
+        </main>
+      </div>
+      {toast && (
+        <div className="toast" role="status">
+          <Check size={18} />
+          {toast}
+        </div>
+      )}
+      {modal && (
+        <div className="overlay">
+          <section className="modal">
+            <button
+              className="close"
+              aria-label="Đóng"
+              disabled={busy}
+              onClick={() => setModal("")}
+            >
+              <X size={20} />
+            </button>
+            {modal === "property" && (
+              <>
+                <h2>Thêm căn hộ</h2>
+                <p>
+                  Nhập căn hộ và số phòng. Giá thuê từng phòng có thể thiết lập
+                  sau.
+                </p>
+                <DataForm
+                  schema={propertySchema}
+                  fields={propertyFields}
+                  defaults={{
+                    name: "",
+                    address: "",
+                    monthly_rent: "",
+                    room_count: "",
+                  }}
+                  submit="Thêm căn hộ"
+                  onSubmit={(v) =>
+                    save(
+                      () =>
+                        rpc("create_property", {
+                          org,
+                          property_name: v.name,
+                          property_address: v.address,
+                          rent: v.monthly_rent,
+                          room_count: v.room_count,
+                        }),
+                      "Đã thêm căn hộ",
+                    )
+                  }
+                />
+              </>
+            )}
+            {["room-add", "room-edit"].includes(modal) && (
+              <>
+                <h2>{modal === "room-edit" ? "Sửa phòng" : "Thêm phòng"}</h2>
+                <DataForm
+                  schema={roomSchema}
+                  fields={roomFields}
+                  defaults={
+                    modal === "room-edit" && room
+                      ? { name: room.name, monthly_rent: room.monthly_rent }
+                      : { name: "", monthly_rent: "" }
+                  }
+                  submit="Lưu phòng"
+                  onSubmit={(v) =>
+                    save(
+                      () =>
+                        modal === "room-edit" && room
+                          ? update("rooms", room.id, org, v)
+                          : insert("rooms", {
+                              ...v,
+                              organization_id: org,
+                              property_id: propertyId,
+                            }),
+                      "Đã lưu phòng",
+                    )
+                  }
+                />
+              </>
+            )}
+            {["tenant-add", "tenant-edit"].includes(modal) && (
+              <>
+                <h2>
+                  {modal === "tenant-edit"
+                    ? "Cập nhật người thuê"
+                    : "Thêm người thuê"}
+                </h2>
+                <DataForm
+                  schema={tenantSchema}
+                  fields={tenantFields}
+                  defaults={
+                    tenant
+                      ? { ...tenant, email: tenant.email || "" }
+                      : {
+                          room_id: page === "room" ? roomId : "",
+                          full_name: "",
+                          gender: "",
+                          birth_date: "",
+                          identity_number: "",
+                          phone: "",
+                          email: "",
+                          move_in: localDay(),
+                        }
+                  }
+                  submit="Lưu người thuê"
+                  onSubmit={(v) =>
+                    save(
+                      () =>
+                        tenant
+                          ? update("tenants", tenant.id, org, {
+                              ...v,
+                              email: v.email || null,
+                            })
+                          : insert("tenants", {
+                              ...v,
+                              email: v.email || null,
+                              organization_id: org,
+                            }),
+                      "Đã lưu hồ sơ người thuê",
+                    )
+                  }
+                />
+              </>
+            )}
+            {modal === "tenant-detail" && tenant && (
+              <>
+                <h2>{tenant.full_name}</h2>
+                <p>Thông tin người thuê</p>
+                <div className="detail-list">
+                  {[
+                    ["Giới tính", tenant.gender],
+                    ["Ngày sinh", tenant.birth_date],
+                    ["CCCD", tenant.identity_number],
+                    ["Số điện thoại", tenant.phone],
+                    ["Email", tenant.email || "Chưa cung cấp"],
+                    ["Ngày vào ở", tenant.move_in],
+                    ["Ngày chuyển đi", tenant.move_out || "Đang ở"],
+                  ].map(([label, value]) => (
+                    <div key={label}>
+                      <span>{label}</span>
+                      <b>{value}</b>
+                    </div>
+                  ))}
+                </div>
+                {canWrite && (
+                  <>
+                    <button
+                      className="primary wide"
+                      onClick={() => setModal("tenant-edit")}
+                    >
+                      Sửa hồ sơ
+                    </button>
+                    {!tenant.move_out && (
+                      <button
+                        className="secondary wide"
+                        onClick={() => setModal("move-out")}
+                      >
+                        Ghi nhận chuyển đi
+                      </button>
+                    )}
+                  </>
+                )}
+              </>
+            )}
+            {modal === "move-out" && tenant && (
+              <>
+                <h2>Ghi nhận chuyển đi</h2>
+                <p>Hồ sơ và lịch sử thanh toán được giữ lại.</p>
+                <form
+                  onSubmit={async (e) => {
+                    e.preventDefault();
+                    const date = String(
+                      new FormData(e.currentTarget).get("move_out"),
+                    );
+                    await act(
+                      () =>
+                        update("tenants", tenant.id, org, { move_out: date }),
+                      "Đã ghi nhận chuyển đi",
+                    );
+                  }}
+                >
+                  <label>
+                    Ngày chuyển đi
+                    <input
+                      required
+                      type="date"
+                      name="move_out"
+                      min={tenant.move_in}
+                      defaultValue={localDay()}
+                    />
+                  </label>
+                  <button className="primary wide" disabled={busy}>
+                    Lưu
+                  </button>
+                </form>
+              </>
+            )}
+            {modal === "payment" && invoice && (
+              <>
+                <h2>Ghi nhận thu tiền</h2>
+                <p>
+                  Còn phải thu: {money(balance(invoice, data.payments))}. Ngày
+                  thanh toán là thời điểm ghi nhận.
+                </p>
+                <DataForm
+                  schema={paymentSchema}
+                  fields={[
+                    {
+                      name: "amount",
+                      label: "Số tiền thanh toán (VNĐ)",
+                      type: "number",
+                      min: 1,
+                      max: balance(invoice, data.payments),
+                    },
+                  ]}
+                  defaults={{ amount: balance(invoice, data.payments) }}
+                  submit="Ghi nhận thanh toán"
+                  onSubmit={(v) =>
+                    save(
+                      () =>
+                        rpc("record_payment", {
+                          org,
+                          target_invoice: invoice.id,
+                          payment_amount: v.amount,
+                        }),
+                      "Đã ghi nhận thanh toán",
+                    )
+                  }
+                />
+              </>
+            )}
+            {modal === "invoice-detail" && invoice && (
+              <>
+                <h2>Hóa đơn · {invoice.period.slice(0, 7)}</h2>
+                <p>Đơn giá đã lưu tại thời điểm lập hóa đơn.</p>
+                <div className="detail-list">
+                  {[
+                    ["Tiền phòng", money(invoice.room_rent)],
+                    [
+                      "Điện",
+                      `${invoice.electricity_new - invoice.electricity_old} kWh × ${money(invoice.electricity_rate)}`,
+                    ],
+                    [
+                      "Nước",
+                      `${invoice.water_new - invoice.water_old} m³ × ${money(invoice.water_rate)}`,
+                    ],
+                    ["Rác", money(invoice.trash_fee)],
+                    ["Wifi", money(invoice.wifi_fee)],
+                    ["Máy giặt", money(invoice.laundry_fee)],
+                    ["Tổng hóa đơn", money(invoice.total)],
+                    ["Còn phải thu", money(balance(invoice, data.payments))],
+                    ["Hạn thanh toán", invoice.due_date],
+                  ].map(([k, v]) => (
+                    <div key={k}>
+                      <span>{k}</span>
+                      <b>{v}</b>
+                    </div>
+                  ))}
+                </div>
+                <h3 className="history-title">Lịch sử thanh toán</h3>
+                {data.payments
+                  .filter((p) => p.invoice_id === invoice.id)
+                  .map((p) => (
+                    <div className="bill-line" key={p.id}>
+                      <span>
+                        {new Date(p.paid_at).toLocaleString("vi-VN", {
+                          timeZone: "Asia/Ho_Chi_Minh",
+                        })}
+                      </span>
+                      <b>{money(p.amount)}</b>
+                    </div>
+                  ))}
+              </>
+            )}
+            {modal === "contract" && room && (
+              <>
+                <h2>Lưu hợp đồng · {room.name}</h2>
+                <p>
+                  Tệp được lưu riêng tư, chỉ thành viên có quyền mới có thể xem.
+                </p>
+                <ContractUpload
+                  org={org}
+                  room={room}
+                  onSaved={async () => {
+                    setModal("");
+                    await refresh();
+                    notify("Đã lưu hợp đồng");
+                  }}
+                />
+              </>
+            )}
+            {modal === "invite" && (
+              <>
+                <h2>Cấp quyền truy cập</h2>
+                <p>
+                  Người được cấp quyền đăng ký bằng email này và chọn “Nhận lời
+                  mời”. Ứng dụng không tự gửi email mời.
+                </p>
+                <DataForm
+                  schema={inviteSchema}
+                  fields={[
+                    { name: "email", label: "Email", type: "email" },
+                    {
+                      name: "role",
+                      label: "Vai trò",
+                      options: [
+                        { value: "manager", label: "Quản lý" },
+                        { value: "viewer", label: "Chỉ xem" },
+                      ],
+                    },
+                  ]}
+                  defaults={{ email: "", role: "viewer" }}
+                  submit="Lưu lời mời"
+                  onSubmit={(v) =>
+                    save(
+                      () =>
+                        insert("invitations", { ...v, organization_id: org }),
+                      "Đã tạo lời mời",
+                    )
+                  }
+                />
+              </>
+            )}
+          </section>
+        </div>
+      )}
+    </div>
+  );
+}
+function Loading({ label }: { label: string }) {
+  return (
+    <div className="loading">
+      <LoaderCircle size={24} className="spinner" />
+      {label}
+    </div>
+  );
+}
+function Empty({ title, detail }: { title: string; detail: string }) {
+  return (
+    <div className="empty">
+      <Building2 size={28} />
+      <h3>{title}</h3>
+      <p>{detail}</p>
+    </div>
+  );
+}
+function Stat({
+  label,
+  value,
+  icon,
+  foot,
+}: {
+  label: string;
+  value: string;
+  icon: React.ReactNode;
+  foot: string;
+}) {
+  return (
+    <section className="stat">
+      <div className="stat-top">
+        <span>{label}</span>
+        <span className="stat-icon">{icon}</span>
+      </div>
+      <strong>{value}</strong>
+      <div className="stat-foot">{foot}</div>
+    </section>
+  );
+}
+function Invoices({
+  invoices,
+  data,
+  canWrite,
+  pay,
+  detail,
+}: {
+  invoices: Invoice[];
+  data: Data;
+  canWrite: boolean;
+  pay: (i: Invoice) => void;
+  detail: (i: Invoice) => void;
+}) {
+  return invoices.length ? (
+    <div className="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>PHÒNG / CĂN HỘ</th>
+            <th>TỔNG HÓA ĐƠN</th>
+            <th>CÒN PHẢI THU</th>
+            <th>HẠN THANH TOÁN</th>
+            <th>TRẠNG THÁI</th>
+            <th />
+          </tr>
+        </thead>
+        <tbody>
+          {invoices.map((i) => {
+            const room = data.rooms.find((r) => r.id === i.room_id),
+              remaining = balance(i, data.payments);
+            return (
+              <tr key={i.id}>
+                <td>
+                  <button className="text-button" onClick={() => detail(i)}>
+                    {room?.name} ·{" "}
+                    {
+                      data.properties.find((p) => p.id === room?.property_id)
+                        ?.name
+                    }
+                  </button>
+                </td>
+                <td>{money(i.total)}</td>
+                <td>{money(remaining)}</td>
+                <td>{i.due_date}</td>
+                <td>
+                  <span className={"status " + (remaining ? "pending" : "")}>
+                    {remaining
+                      ? i.due_date < localDay()
+                        ? "Quá hạn"
+                        : "Chưa thu đủ"
+                      : "Đã thu đủ"}
+                  </span>
+                </td>
+                <td>
+                  {canWrite && remaining > 0 && (
+                    <button className="text-button" onClick={() => pay(i)}>
+                      Thu tiền
+                    </button>
+                  )}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  ) : (
+    <Empty
+      title="Chưa có hóa đơn cần hiển thị"
+      detail="Hóa đơn của kỳ được chọn sẽ xuất hiện tại đây."
+    />
+  );
+}
+function InvoiceForm({
+  period,
+  previous,
+  room,
+  rates,
+  onSubmit,
+}: {
+  period: string;
+  previous: Invoice | null;
+  room: Room;
+  rates: NonNullable<Data["rates"]>;
+  onSubmit: (v: Record<string, unknown>) => Promise<void>;
+}) {
+  const fields: Field[] = [
+    { name: "period", label: "Kỳ hóa đơn", type: "month" },
+    { name: "due_date", label: "Hạn thanh toán", type: "date" },
+    {
+      name: "electricity_old",
+      label: "Điện · chỉ số cũ",
+      type: "number",
+      min: 0,
+      readOnly: !!previous,
+    },
+    {
+      name: "electricity_new",
+      label: `Điện · chỉ số mới (${money(rates.electricity)}/kWh)`,
+      type: "number",
+      min: previous?.electricity_new || 0,
+    },
+    {
+      name: "water_old",
+      label: "Nước · chỉ số cũ",
+      type: "number",
+      min: 0,
+      readOnly: !!previous,
+    },
+    {
+      name: "water_new",
+      label: `Nước · chỉ số mới (${money(rates.water)}/m³)`,
+      type: "number",
+      min: previous?.water_new || 0,
+    },
+  ];
+  const [preview, setPreview] = useState<number | null>(null);
+  return (
+    <div
+      onInput={(e) => {
+        const form = (e.target as HTMLElement).closest("form");
+        if (!form) return;
+        const fd = new FormData(form);
+        try {
+          const vals = [
+            "electricity_old",
+            "electricity_new",
+            "water_old",
+            "water_new",
+          ].map((k) => {
+            const v = fd.get(k);
+            if (v === null || v === "") throw new Error();
+            return Number(v);
+          });
+          setPreview(
+            calculateBill(
+              room.monthly_rent,
+              rates,
+              vals[0],
+              vals[1],
+              vals[2],
+              vals[3],
+            ),
+          );
+        } catch {
+          setPreview(null);
+        }
+      }}
+    >
+      <DataForm
+        schema={invoiceSchema}
+        fields={fields}
+        defaults={{
+          period,
+          due_date: period + "-05",
+          electricity_old: previous?.electricity_new ?? "",
+          electricity_new: "",
+          water_old: previous?.water_new ?? "",
+          water_new: "",
+        }}
+        submit="Lập hóa đơn"
+        onSubmit={onSubmit}
+      >
+        <div className="bill-line">
+          Tiền phòng <b>{money(room.monthly_rent)}</b>
+        </div>
+        <div className="bill-line">
+          Rác · Wifi · Máy giặt{" "}
+          <b>{money(rates.trash + rates.wifi + rates.laundry)}</b>
+        </div>
+        <div className="bill-total">
+          Tổng dự kiến{" "}
+          <b>{preview === null ? "Nhập chỉ số" : money(preview)}</b>
+        </div>
+        <p className="form-hint">
+          Chỉ số cũ lấy từ hóa đơn gần nhất. Tổng cuối cùng do máy chủ tính và
+          lưu.
+        </p>
+      </DataForm>
+    </div>
+  );
+}
+function ContractUpload({
+  org,
+  room,
+  onSaved,
+}: {
+  org: string;
+  room: Room;
+  onSaved: () => Promise<void>;
+}) {
+  const [file, setFile] = useState<File | null>(null),
+    [error, setError] = useState("");
+  return (
+    <>
+      <label className="file-label">
+        Tệp hợp đồng
+        <input
+          type="file"
+          accept="application/pdf,image/jpeg,image/png"
+          onChange={(e) => {
+            setFile(e.target.files?.[0] || null);
+            setError("");
+          }}
+        />
+      </label>
+      {error && (
+        <p className="form-error" role="alert">
+          {error}
+        </p>
+      )}
+      <DataForm
+        schema={contractSchema}
+        fields={[
+          { name: "starts_on", label: "Ngày bắt đầu", type: "date" },
+          { name: "ends_on", label: "Ngày kết thúc", type: "date" },
+        ]}
+        defaults={{ starts_on: localDay(), ends_on: "" }}
+        submit="Tải lên và lưu"
+        onSubmit={async (v) => {
+          if (!file) throw new Error("Vui lòng chọn tệp hợp đồng");
+          if (
+            !["application/pdf", "image/jpeg", "image/png"].includes(
+              file.type,
+            ) ||
+            file.size > 10 * 1024 * 1024 ||
+            !file.size
+          )
+            throw new Error("Tệp phải là PDF, JPG hoặc PNG và không quá 10 MB");
+          const extension =
+            file.type === "application/pdf"
+              ? "pdf"
+              : file.type === "image/jpeg"
+                ? "jpg"
+                : "png";
+          const path = `${org}/${room.id}/${crypto.randomUUID()}.${extension}`;
+          const { error } = await supabase!.storage
+            .from("contracts")
+            .upload(path, file, { contentType: file.type, upsert: false });
+          if (error)
+            throw new Error("Không thể tải hợp đồng: " + error.message);
+          try {
+            await insert("contracts", {
+              ...v,
+              organization_id: org,
+              room_id: room.id,
+              file_name: file.name,
+              storage_path: path,
+            });
+          } catch (e) {
+            const cleanup = await supabase!.storage
+              .from("contracts")
+              .remove([path]);
+            if (cleanup.error)
+              setError(
+                "Không lưu được thông tin hợp đồng; tệp chưa liên kết cần được dọn trong Storage.",
+              );
+            throw e;
+          }
+          await onSaved();
+        }}
+      />
+    </>
+  );
+}
+async function viewContract(
+  c: Contract,
+  setError: (s: string) => void,
+  setBusy: (b: boolean) => void,
+) {
+  const tab = window.open("about:blank", "_blank");
+  if (tab) tab.opener = null;
+  setBusy(true);
+  try {
+    const { data, error } = await supabase!.storage
+      .from("contracts")
+      .createSignedUrl(c.storage_path, 60);
+    if (error) throw error;
+    if (tab) tab.location.href = data.signedUrl;
+    else
+      throw new Error(
+        "Trình duyệt chặn cửa sổ mới. Hãy cho phép mở cửa sổ để xem hợp đồng.",
+      );
+  } catch (e) {
+    tab?.close();
+    setError(e instanceof Error ? e.message : "Không thể mở hợp đồng");
+  } finally {
+    setBusy(false);
+  }
+}
+function exportInvoices(invoices: Invoice[], data: Data) {
+  const escape = (v: string | number) =>
+    '"' +
+    String(v)
+      .replace(/"/g, '""')
+      .replace(/^[=+@-]/, "'$&") +
+    '"';
+  const lines = [
+    ["Căn hộ", "Phòng", "Kỳ", "Tổng hóa đơn", "Còn phải thu", "Hạn thanh toán"],
+    ...invoices.map((i) => {
+      const r = data.rooms.find((r) => r.id === i.room_id);
+      return [
+        data.properties.find((p) => p.id === r?.property_id)?.name || "",
+        r?.name || "",
+        i.period,
+        i.total,
+        balance(i, data.payments),
+        i.due_date,
+      ];
+    }),
+  ];
+  const url = URL.createObjectURL(
+    new Blob(
+      ["\uFEFF" + lines.map((line) => line.map(escape).join(",")).join("\r\n")],
+      { type: "text/csv;charset=utf-8" },
+    ),
+  );
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "HH-HOME-hoa-don.csv";
+  a.click();
+  URL.revokeObjectURL(url);
+}

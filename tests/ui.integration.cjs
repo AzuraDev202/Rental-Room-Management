@@ -1,0 +1,438 @@
+// UI integration against an in-memory PostgreSQL backend. Auth and Storage HTTP are simulated.
+// Start the dev server on port 3001 with the TEST public URL/key documented in tests/README.md.
+const { chromium } = require("playwright");
+const { PGlite } = require("@electric-sql/pglite");
+const fs = require("fs");
+const assert = require("node:assert/strict");
+const root = require("node:path").resolve(__dirname, "..");
+const uid = "00000000-0000-0000-0000-000000000001",
+  vid = "00000000-0000-0000-0000-000000000002";
+(async () => {
+  const db = new PGlite();
+  await db.exec(
+    `create role anon nologin;create role authenticated nologin;create schema auth;create schema storage;create table auth.users(id uuid primary key,email text,email_confirmed_at timestamptz);create function auth.uid() returns uuid language sql stable as $$select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid$$;grant usage on schema auth,public,storage to authenticated,anon;grant execute on function auth.uid() to authenticated,anon;create table storage.buckets(id text primary key,name text,public boolean,file_size_limit bigint,allowed_mime_types text[]);create table storage.objects(id uuid primary key default gen_random_uuid(),bucket_id text references storage.buckets(id),name text);alter table storage.objects enable row level security;grant select,insert,delete on storage.objects to authenticated;insert into auth.users values('${uid}','owner@test.invalid',now()),('${vid}','viewer@test.invalid',now());`,
+  );
+  await db.exec(
+    fs
+      .readFileSync(
+        root + "/supabase/migrations/202610080001_hh_home.sql",
+        "utf8",
+      )
+      .replace("create extension if not exists pgcrypto;", ""),
+  );
+  const browser = await chromium.launch({
+    headless: true,
+    ...(process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH
+      ? { executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH }
+      : {}),
+    args: ["--no-sandbox"],
+  });
+  const context = await browser.newContext({
+    viewport: { width: 1440, height: 1000 },
+  });
+  const errors = [];
+  const user = (id) => ({
+    id,
+    aud: "authenticated",
+    role: "authenticated",
+    email: id === uid ? "owner@test.invalid" : "viewer@test.invalid",
+    email_confirmed_at: new Date().toISOString(),
+    created_at: new Date().toISOString(),
+    app_metadata: { provider: "email", providers: ["email"] },
+    user_metadata: { display_name: id === uid ? "Test Owner" : "Test Viewer" },
+  });
+  const token = (id) =>
+    Buffer.from(JSON.stringify({ alg: "HS256", typ: "JWT" })).toString(
+      "base64url",
+    ) +
+    "." +
+    Buffer.from(
+      JSON.stringify({
+        sub: id,
+        aud: "authenticated",
+        role: "authenticated",
+        exp: Math.floor(Date.now() / 1000) + 3600,
+      }),
+    ).toString("base64url") +
+    ".test";
+  const json = (v) =>
+    JSON.stringify(v, (key, x) => {
+      if (
+        [
+          "period",
+          "due_date",
+          "birth_date",
+          "move_in",
+          "move_out",
+          "starts_on",
+          "ends_on",
+        ].includes(key) &&
+        typeof x === "string"
+      )
+        return x.slice(0, 10);
+      return typeof x === "bigint" ? Number(x) : x;
+    });
+  await context.route("https://hh-home-test.supabase.co/**", async (route) => {
+    const req = route.request(),
+      url = new URL(req.url()),
+      method = req.method(),
+      body = req.postDataJSON?.bind(req);
+    let who = uid;
+    const bearer = req.headers().authorization?.split(" ")[1];
+    if (bearer && bearer.split(".").length === 3)
+      try {
+        who = JSON.parse(Buffer.from(bearer.split(".")[1], "base64url")).sub;
+      } catch {}
+    try {
+      if (url.pathname.startsWith("/auth/")) {
+        if (url.pathname.endsWith("/token")) {
+          const v = body();
+          who = v.email === "viewer@test.invalid" ? vid : uid;
+          return route.fulfill({
+            json: {
+              access_token: token(who),
+              refresh_token: "test-refresh",
+              token_type: "bearer",
+              expires_in: 3600,
+              expires_at: Math.floor(Date.now() / 1000) + 3600,
+              user: user(who),
+            },
+          });
+        }
+        if (url.pathname.endsWith("/logout"))
+          return route.fulfill({ status: 204 });
+        return route.fulfill({ json: user(who) });
+      }
+      await db.exec(
+        `reset role;set role authenticated;select set_config('request.jwt.claim.sub','${who}',false)`,
+      );
+      if (url.pathname.startsWith("/storage/v1/object/sign/")) {
+        if (method === "GET")
+          return route.fulfill({
+            status: 200,
+            contentType: "text/plain",
+            body: "Test contract",
+          });
+        assert.equal(body().expiresIn, 60);
+        const path = url.pathname.split("/contracts/")[1];
+        const found = (
+          await db.query("select * from storage.objects where name=$1", [path])
+        ).rows;
+        assert.equal(found.length, 1);
+        return route.fulfill({
+          json: { signedURL: "/object/sign/contracts/" + path + "?token=test" },
+        });
+      }
+      if (url.pathname.startsWith("/storage/v1/object/contracts/")) {
+        const path = url.pathname.split("/contracts/")[1];
+        await db.query(
+          "insert into storage.objects(bucket_id,name) values('contracts',$1)",
+          [path],
+        );
+        return route.fulfill({
+          json: { Key: "contracts/" + path, Id: "object-id" },
+        });
+      }
+      if (url.pathname.startsWith("/rest/v1/rpc/")) {
+        const name = url.pathname.split("/").pop();
+        assert.match(name, /^[a-z_]+$/);
+        const v = body(),
+          keys = Object.keys(v);
+        keys.forEach((k) => assert.match(k, /^[a-z_]+$/));
+        const r = await db.query(
+          `select public.${name}(${keys.map((k, i) => k + " => $" + (i + 1)).join(",")}) as value`,
+          Object.values(v),
+        );
+        return route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: json(r.rows[0].value),
+        });
+      }
+      const table = url.pathname.split("/").pop();
+      assert(
+        [
+          "organizations",
+          "memberships",
+          "properties",
+          "rooms",
+          "tenants",
+          "service_rates",
+          "invoices",
+          "payments",
+          "contracts",
+          "invitations",
+        ].includes(table),
+      );
+      const params = [],
+        where = [];
+      for (const [k, v] of url.searchParams) {
+        if (v.startsWith("eq.")) {
+          assert.match(k, /^[a-z_]+$/);
+          params.push(v.slice(3));
+          where.push(k + "=$" + params.length);
+        }
+      }
+      const condition = where.length ? " where " + where.join(" and ") : "";
+      let result;
+      if (method === "GET") {
+        const order = (url.searchParams.get("order") || "").split(".")[0];
+        assert(!order || /^[a-z_]+$/.test(order));
+        result = await db.query(
+          "select * from public." +
+            table +
+            condition +
+            (order ? " order by " + order : ""),
+          params,
+        );
+      } else if (method === "POST") {
+        const v = body(),
+          item = Array.isArray(v) ? v[0] : v,
+          keys = Object.keys(item);
+        keys.forEach((k) => assert.match(k, /^[a-z_]+$/));
+        let sql =
+          "insert into public." +
+          table +
+          "(" +
+          keys.join(",") +
+          ") values(" +
+          keys.map((_, i) => "$" + (i + 1)).join(",") +
+          ")";
+        if (req.headers().prefer?.includes("resolution=merge-duplicates"))
+          sql +=
+            " on conflict(organization_id) do update set " +
+            keys
+              .filter((k) => k !== "organization_id")
+              .map((k) => k + "=excluded." + k)
+              .join(",");
+        result = await db.query(sql + " returning *", Object.values(item));
+      } else if (method === "PATCH") {
+        const v = body(),
+          keys = Object.keys(v);
+        keys.forEach((k) => assert.match(k, /^[a-z_]+$/));
+        const offset = keys.length;
+        const renamed = condition.replace(
+          /\$(\d+)/g,
+          (_, n) => "$" + (+n + offset),
+        );
+        result = await db.query(
+          "update public." +
+            table +
+            " set " +
+            keys.map((k, i) => k + "=$" + (i + 1)).join(",") +
+            renamed +
+            " returning *",
+          [...Object.values(v), ...params],
+        );
+      } else throw new Error("Unsupported API method " + method);
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: json(result.rows),
+      });
+    } catch (e) {
+      console.error("API error", url.pathname, e.message);
+      await route.fulfill({
+        status: 400,
+        json: { message: e.message, code: e.code || "P0001" },
+      });
+    }
+  });
+  const page = await context.newPage();
+  page.on("pageerror", (e) => errors.push(e.message));
+  await page.goto("http://localhost:3001", { waitUntil: "networkidle" });
+  await page.getByLabel("Email", { exact: true }).fill("owner@test.invalid");
+  await page.getByLabel("Mật khẩu", { exact: true }).fill("password123");
+  await page.getByRole("button", { name: "Đăng nhập", exact: true }).click();
+  await page.getByLabel("Tên không gian quản lý").fill("HH HOME test");
+  await page
+    .getByRole("button", { name: "Tạo không gian", exact: true })
+    .click();
+  await page.getByRole("heading", { name: "Chưa có căn hộ" }).waitFor();
+  console.log("Workspace initialized");
+  assert.equal(
+    await page
+      .getByRole("button", { name: "Thêm căn hộ", exact: true })
+      .count(),
+    0,
+  );
+  await page.screenshot({
+    path: "/tmp/hh-empty-dashboard.png",
+    fullPage: true,
+  });
+  await page.getByRole("button", { name: /^Căn hộ/ }).click();
+  await page.getByRole("button", { name: "Thêm căn hộ", exact: true }).click();
+  await page.getByLabel("Tên căn hộ", { exact: true }).fill("Test Building");
+  await page.getByLabel("Địa chỉ", { exact: true }).fill("Test Address");
+  await page.getByLabel("Số phòng", { exact: true }).fill("1");
+  await page
+    .getByLabel("Giá thuê căn hộ / tháng (VNĐ)", { exact: true })
+    .fill("18000000");
+  await page
+    .getByRole("button", { name: "Thêm căn hộ", exact: true })
+    .last()
+    .click();
+  await page
+    .getByRole("heading", { name: "Thêm căn hộ" })
+    .waitFor({ state: "hidden" });
+  await page
+    .getByRole("button", { name: /Test Building Test Address/ })
+    .click();
+  await page
+    .getByRole("button", { name: /Phòng 1 Chưa có người thuê/ })
+    .click();
+  await page.getByRole("button", { name: "Sửa phòng", exact: true }).click();
+  await page.getByLabel("Tên phòng", { exact: true }).fill("Room 101");
+  await page
+    .getByLabel("Giá thuê phòng / tháng (VNĐ)", { exact: true })
+    .fill("3800000");
+  await page.getByRole("button", { name: "Lưu phòng", exact: true }).click();
+  await page
+    .getByRole("heading", { name: "Sửa phòng" })
+    .waitFor({ state: "hidden" });
+  console.log("Property and room saved");
+  await page.getByRole("button", { name: "Cài đặt", exact: true }).click();
+  for (const [label, v] of [
+    ["Điện (₫/kWh)", "3500"],
+    ["Nước (₫/m³)", "20000"],
+    ["Rác (₫/phòng/tháng)", "30000"],
+    ["Wifi (₫/phòng/tháng)", "70000"],
+    ["Máy giặt (₫/phòng/tháng)", "50000"],
+  ])
+    await page.getByLabel(label, { exact: true }).fill(v);
+  await page.getByRole("button", { name: "Lưu đơn giá", exact: true }).click();
+  await page.getByText("Đã lưu đơn giá", { exact: true }).waitFor();
+  await page.getByRole("button", { name: "Cấp quyền", exact: true }).click();
+  await page.getByLabel("Email", { exact: true }).fill("viewer@test.invalid");
+  await page.getByRole("button", { name: "Lưu lời mời" }).click();
+  await page
+    .getByRole("heading", { name: "Cấp quyền truy cập" })
+    .waitFor({ state: "hidden" });
+  console.log("Rates and invitation saved");
+  await page.getByRole("button", { name: /^Căn hộ/ }).click();
+  await page
+    .getByRole("button", { name: /Test Building Test Address/ })
+    .click();
+  await page
+    .getByRole("button", { name: /Room 101 Chưa có người thuê/ })
+    .click();
+  await page
+    .getByRole("button", { name: "Thêm người thuê", exact: true })
+    .click();
+  await page.getByLabel("Họ tên", { exact: true }).fill("Test Tenant");
+  await page.getByLabel("Giới tính", { exact: true }).selectOption("Nam");
+  await page.getByLabel("Ngày sinh", { exact: true }).fill("1998-01-01");
+  await page
+    .getByLabel("Số CCCD (12 chữ số)", { exact: true })
+    .fill("012345678901");
+  await page.getByLabel("Số điện thoại", { exact: true }).fill("0901234567");
+  await page
+    .getByRole("button", { name: "Lưu người thuê", exact: true })
+    .click();
+  await page
+    .getByRole("heading", { name: "Thêm người thuê" })
+    .waitFor({ state: "hidden" });
+  await page.getByRole("button", { name: "Tải lên", exact: true }).click();
+  await page.locator("input[type=file]").setInputFiles({
+    name: "test-contract.pdf",
+    mimeType: "application/pdf",
+    buffer: Buffer.from("%PDF-1.4\n%%EOF"),
+  });
+  await page.getByLabel("Ngày kết thúc", { exact: true }).fill("2027-12-31");
+  await page
+    .getByRole("button", { name: "Tải lên và lưu", exact: true })
+    .click();
+  await page
+    .getByRole("heading", { name: /Lưu hợp đồng/ })
+    .waitFor({ state: "hidden" });
+  await page.getByText("test-contract.pdf", { exact: true }).waitFor();
+  console.log("Tenant and contract saved");
+  for (const [label, v] of [
+    ["Điện · chỉ số cũ", "1240"],
+    ["Điện · chỉ số mới (3.500 ₫/kWh)", "1325"],
+    ["Nước · chỉ số cũ", "86"],
+    ["Nước · chỉ số mới (20.000 ₫/m³)", "92"],
+  ])
+    await page.getByLabel(label, { exact: true }).fill(v);
+  await page.getByRole("button", { name: "Lập hóa đơn", exact: true }).click();
+  await page.getByText("Đã lập hóa đơn", { exact: true }).waitFor();
+  await page.getByRole("button", { name: "Hóa đơn", exact: true }).click();
+  await page.getByRole("button", { name: "Thu tiền", exact: true }).click();
+  await page
+    .getByLabel("Số tiền thanh toán (VNĐ)", { exact: true })
+    .fill("1000000");
+  await page
+    .getByRole("button", { name: "Ghi nhận thanh toán", exact: true })
+    .click();
+  await page
+    .getByRole("heading", { name: "Ghi nhận thu tiền" })
+    .waitFor({ state: "hidden" });
+  await page.getByText("3.367.500 ₫", { exact: true }).waitFor();
+  await page.getByRole("button", { name: "Tổng quan", exact: true }).click();
+  await page.getByText("1.000.000 ₫", { exact: true }).first().waitFor();
+  await page.reload({ waitUntil: "networkidle" });
+  await page.getByText("1.000.000 ₫", { exact: true }).first().waitFor();
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.waitForTimeout(500);
+  assert.equal(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth > innerWidth,
+    ),
+    false,
+  );
+  await page.screenshot({
+    path: "/tmp/hh-real-dashboard-mobile.png",
+    fullPage: true,
+  });
+  await page.getByRole("button", { name: "Mở menu" }).click();
+  await page.getByRole("button", { name: /Test Owner Đăng xuất/ }).click();
+  await page.getByLabel("Email", { exact: true }).fill("viewer@test.invalid");
+  await page.getByLabel("Mật khẩu", { exact: true }).fill("password123");
+  await page.getByRole("button", { name: "Đăng nhập", exact: true }).click();
+  await page.getByRole("button", { name: /Nhận lời mời cho viewer/ }).click();
+  await page.getByRole("heading", { name: "Xin chào, Viewer" }).waitFor();
+  await page.getByRole("button", { name: "Mở menu" }).click();
+  await page.getByRole("button", { name: /^Căn hộ/ }).click();
+  assert.equal(
+    await page
+      .getByRole("button", { name: "Thêm căn hộ", exact: true })
+      .count(),
+    0,
+  );
+  await page
+    .getByRole("button", { name: /Test Building Test Address/ })
+    .click();
+  assert.equal(
+    await page.getByRole("button", { name: "Thêm phòng", exact: true }).count(),
+    0,
+  );
+  await page.getByRole("button", { name: /Room 101 1 người đang ở/ }).click();
+  assert.equal(
+    await page.getByRole("button", { name: "Sửa phòng", exact: true }).count(),
+    0,
+  );
+  assert.equal(
+    await page.getByRole("button", { name: "Tải lên", exact: true }).count(),
+    0,
+  );
+  assert.equal(
+    await page
+      .getByRole("button", { name: "Lập hóa đơn", exact: true })
+      .count(),
+    0,
+  );
+  const opened = page.waitForEvent("popup");
+  await page.getByRole("button", { name: "Xem", exact: true }).click();
+  const popup = await opened;
+  await popup.waitForURL(/object\/sign\/contracts/);
+  await popup.close();
+  assert.deepEqual(errors, []);
+  console.log(
+    "PASS: login, empty database, workspace, property rent, room rent, service rates, invitation, tenant, contract upload, invoice, partial payment, reload persistence, mobile layout, viewer permissions. Backend = local PostgreSQL with real migration; Auth/Storage HTTP simulated.",
+  );
+  await browser.close();
+  await db.close();
+})().catch((e) => {
+  console.error(e);
+  process.exit(1);
+});

@@ -1,29 +1,72 @@
 # HH HOME
 
-Bản mẫu giao diện quản lý căn hộ và phòng trọ, xây dựng với Next.js, React, TypeScript và Lucide.
+Ứng dụng quản lý căn hộ và phòng trọ: Next.js + TypeScript, Supabase PostgreSQL/Auth/Storage, React Hook Form + Zod, Recharts. Không có dữ liệu mẫu hoặc tài khoản mặc định.
 
-## Chạy ứng dụng
+## 1. Tạo và cấu hình Supabase
+
+1. Tạo dự án tại https://supabase.com/dashboard. Chọn vùng gần Việt Nam và lưu mật khẩu database trong trình quản lý mật khẩu.
+2. Mở **SQL Editor**, chạy toàn bộ `supabase/migrations/202610080001_hh_home.sql` một lần trên dự án mới. Migration tạo bảng, RPC, RLS và bucket `contracts` riêng tư; không tạo dữ liệu căn hộ/người thuê/hóa đơn.
+3. Trong **Authentication → Providers → Email**, bật đăng ký email/password và **Confirm email**. Thiết lập mật khẩu tối thiểu 8 ký tự. Với môi trường production, cấu hình SMTP để gửi email xác nhận và đặt lại mật khẩu ổn định.
+4. Trong **Authentication → URL Configuration**, đặt Site URL theo domain triển khai và thêm redirect URL cho domain đó. Khi chạy local, thêm `http://localhost:3000` và `http://localhost:3000/**`. Production dùng domain HTTPS cụ thể, không dùng wildcard rộng.
+5. Lấy Project URL và **publishable key hoặc anon key** từ Project Settings → API. Chỉ hai giá trị công khai này được dùng trong frontend. Không dùng `service_role` hoặc secret key.
+6. Sao chép `.env.example` thành `.env.local`, điền hai giá trị:
+
+```dotenv
+NEXT_PUBLIC_SUPABASE_URL=https://YOUR_PROJECT.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=YOUR_PUBLISHABLE_OR_ANON_KEY
+```
+
+`.env.local` không được commit. Trên Vercel, khai báo hai biến trong Environment Variables và redeploy; biến `NEXT_PUBLIC_*` được đóng gói lúc build.
+
+Nếu chưa cấu hình, ứng dụng hiển thị hướng dẫn kết nối và không hiển thị dữ liệu giả. Dự án Supabase thật chưa được tạo tự động bởi repository này.
+
+## 2. Chạy và kiểm tra
 
 ```bash
-npm install
+npm ci
 npm run dev
 ```
 
 Mở http://localhost:3000.
 
 ```bash
+npm test
 npm run build
 npm start
 ```
 
-## Các màn hình
+`npm test` chạy kiểm thử nghiệp vụ và kiểm thử SQL bằng PostgreSQL PGlite với mô phỏng schemas Auth/Storage của Supabase. Kiểm thử không tác động database thật. PGlite dùng `gen_random_uuid` tích hợp thay cho bật extension `pgcrypto`. Việc gửi email, Storage HTTP và phiên Auth thật cần kiểm tra trên dự án Supabase đã cấu hình.
 
-- Dashboard doanh thu, tỷ lệ lấp đầy và hóa đơn cần thu.
-- Danh sách căn hộ, tìm kiếm và thêm căn hộ minh họa.
-- Chi tiết căn hộ, danh sách phòng.
-- Chi tiết phòng, người thuê, hợp đồng minh họa và tính tiền điện nước.
-- Danh sách người thuê và xem hồ sơ.
-- Hóa đơn, ghi nhận thanh toán minh họa, xuất CSV doanh thu.
-- Cài đặt đơn giá điện, nước, rác, wifi, máy giặt.
+## 3. Bắt đầu sử dụng
 
-Dữ liệu hiện được lưu trong bộ nhớ trình duyệt và đặt lại khi tải trang. Biểu đồ và số liệu dashboard là dữ liệu minh họa, chưa có backend, đăng nhập hoặc lưu hợp đồng thực tế. Hình minh họa căn hộ SVG được lưu cục bộ; font dùng Google Fonts, với font dự phòng nếu mất kết nối.
+1. Đăng ký, xác nhận email, đăng nhập.
+2. Tạo không gian quản lý đầu tiên; người tạo nhận quyền **Quản trị viên**. Nếu được cấp quyền vào không gian có sẵn, chọn **Nhận lời mời** thay vì tạo không gian mới.
+3. Vào **Căn hộ → Thêm căn hộ**, nhập tên, địa chỉ, số phòng và giá thuê căn hộ/tháng. Phòng được tạo trong cùng giao dịch và có giá thuê ban đầu 0; mở từng phòng để đặt tên và giá thuê thực tế.
+4. Vào **Cài đặt** để nhập đơn giá điện/nước và phí rác, wifi, máy giặt. Các phí này hiện tính theo phòng/tháng. Không áp dụng giá dịch vụ giả định.
+5. Thêm người thuê; khai báo họ tên, giới tính, ngày sinh, CCCD, điện thoại, email (tùy chọn), ngày vào ở. Sửa hồ sơ hoặc ghi nhận chuyển đi; giữ lại hồ sơ đã chuyển đi.
+6. Tải hợp đồng PDF/JPG/PNG tối đa 10 MB, nhập ngày hiệu lực. Tệp thuộc đúng không gian và phòng; nút Xem tạo URL ký có hiệu lực 60 giây, không phải liên kết công khai.
+7. Mở phòng để lập hóa đơn. Lần đầu nhập chỉ số cũ; các kỳ tiếp theo lấy chỉ số mới của hóa đơn gần nhất. Hóa đơn chỉ lập theo thứ tự kỳ, không trùng kỳ và không lập cho tháng tương lai. Máy chủ chốt giá phòng, đơn giá, phí và tính tổng; lịch sử không đổi khi chỉnh đơn giá.
+8. Trong **Hóa đơn**, ghi nhận thanh toán một phần hoặc toàn bộ. Máy chủ khóa hóa đơn khi thu tiền, chặn vượt công nợ và thu lặp khi đã đủ. Ngày thanh toán là thời điểm ghi nhận, không hỗ trợ sửa lịch sử hoặc backdate.
+9. Dashboard thống kê thực thu theo ngày nhận tiền, quy đổi giờ Việt Nam; chọn tháng/năm và lọc căn hộ cho biểu đồ 12 tháng. Còn phải thu được lọc theo kỳ hóa đơn. Tỷ lệ lấp đầy dựa vào ngày vào ở/chuyển đi, tính theo ngày hiện tại ở Việt Nam.
+
+## 4. Phân quyền
+
+| Vai trò       | Xem dữ liệu/hợp đồng | Căn hộ, phòng, người thuê, đơn giá | Lập hóa đơn, thu tiền, tải hợp đồng | Cấp quyền thành viên |
+| ------------- | -------------------- | ---------------------------------- | ----------------------------------- | -------------------- |
+| Quản trị viên | Có                   | Có                                 | Có                                  | Có                   |
+| Quản lý       | Có                   | Có                                 | Có                                  | Không                |
+| Chỉ xem       | Có                   | Không                              | Không                               | Không                |
+
+Quản trị viên vào **Cài đặt → Cấp quyền** để tạo lời mời theo email, vai trò Quản lý/Chỉ xem. Người nhận đăng ký bằng đúng email, xác nhận email và chọn nhận lời mời. Ứng dụng không tự gửi email mời. Có thể hủy lời mời chờ và đổi vai trò thành viên, nhưng luôn giữ ít nhất một quản trị viên. Người dùng có thể tham gia nhiều không gian và chọn không gian ở thanh bên.
+
+RLS và RPC kiểm tra quyền độc lập với UI. CCCD, hồ sơ và hợp đồng có thể được đọc bởi cả ba vai trò trong cùng không gian; không cung cấp cổng đăng nhập người thuê trong phiên bản này.
+
+## 5. Cơ sở dữ liệu và vận hành
+
+Xem [thiết kế database](docs/database.md). Không chạy script xóa/reset dữ liệu trên production. Các thay đổi schema sau này cần migration mới. Không có chức năng xóa lịch sử hóa đơn/thanh toán; chỉnh sai nghiệp vụ cần thiết kế quy trình điều chỉnh riêng.
+
+- Bật backup phù hợp với gói Supabase và kiểm tra khôi phục; backup database không thay thế backup tệp Storage.
+- Giữ bucket `contracts` ở chế độ private, không mở policy `anon`.
+- Kiểm tra email xác nhận/reset, đăng nhập, tài khoản khác không gian, viewer, upload và signed URL trên Supabase thật trước khi vận hành.
+- Hợp đồng tải lên được bù trừ bằng xóa tệp nếu lưu metadata thất bại. Nếu mất kết nối hoặc dọn tệp thất bại, cần đối chiếu Storage với bảng `contracts` để dọn tệp mồ côi.
+- Ứng dụng dùng client Supabase với RLS; không có service-role key hoặc tài khoản bypass phân quyền trong frontend. Không lưu dữ liệu nghiệp vụ vào localStorage; Supabase SDK lưu phiên đăng nhập để khôi phục phiên trên trình duyệt.
