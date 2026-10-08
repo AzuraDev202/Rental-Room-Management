@@ -107,3 +107,10 @@ export const contractSchema = z
     path: ["ends_on"],
     message: "Ngày kết thúc không được trước ngày bắt đầu",
   });
+
+export const deletePropertySchema = (name: string) =>
+  z.object({
+    confirmation_name: z
+      .string()
+      .refine((v) => v === name, "Tên xác nhận phải khớp chính xác tên căn hộ"),
+  });

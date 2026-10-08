@@ -5,7 +5,7 @@
 ## 1. Tạo và cấu hình Supabase
 
 1. Tạo dự án tại https://supabase.com/dashboard. Chọn vùng gần Việt Nam và lưu mật khẩu database trong trình quản lý mật khẩu.
-2. Mở **SQL Editor**, chạy lần lượt `supabase/migrations/202610080001_hh_home.sql` rồi `supabase/migrations/202610080002_property_service_rates.sql`, mỗi file một lần trên dự án mới. Migration tạo bảng, RPC, RLS và bucket `contracts` riêng tư; không tạo dữ liệu căn hộ/người thuê/hóa đơn.
+2. Mở **SQL Editor**, chạy lần lượt `supabase/migrations/202610080001_hh_home.sql` rồi `supabase/migrations/202610080002_property_service_rates.sql` và `supabase/migrations/202610080003_delete_property.sql`, mỗi file một lần trên dự án mới. Migration tạo bảng, RPC, RLS và bucket `contracts` riêng tư; không tạo dữ liệu căn hộ/người thuê/hóa đơn.
 3. Trong **Authentication → Providers → Email**, bật đăng ký email/password và **Confirm email**. Thiết lập mật khẩu tối thiểu 8 ký tự. Với môi trường production, cấu hình SMTP để gửi email xác nhận và đặt lại mật khẩu ổn định.
 4. Trong **Authentication → URL Configuration**, đặt Site URL theo domain triển khai và thêm redirect URL cho domain đó. Khi chạy local, thêm `http://localhost:3000` và `http://localhost:3000/**`. Production dùng domain HTTPS cụ thể, không dùng wildcard rộng.
 5. Lấy Project URL và **publishable key hoặc anon key** từ Project Settings → API. Chỉ hai giá trị công khai này được dùng trong frontend. Không dùng `service_role` hoặc secret key.
@@ -76,3 +76,9 @@ Xem [thiết kế database](docs/database.md). Không chạy script xóa/reset d
 Nếu bạn đã chạy `202610080001_hh_home.sql` trước đây, **chỉ chạy nội dung file mới** [202610080002_property_service_rates.sql](supabase/migrations/202610080002_property_service_rates.sql) trong SQL Editor. Không chạy lại file đầu tiên.
 
 Migration mới tạo đơn giá riêng cho từng căn hộ, sao chép bộ đơn giá cũ vào các căn hộ đang có và giữ nguyên hóa đơn/thanh toán. Bảng đơn giá cũ được đổi tên thành `legacy_organization_service_rates` để lưu bản gốc và thu hồi quyền truy cập của ứng dụng. Workspace hoặc căn hộ mới không tự tạo bộ phí mặc định. Sau đó cập nhật mã ứng dụng và khởi động lại.
+
+## Xóa căn hộ
+
+Cập nhật database đã có: chạy **nội dung** [202610080003_delete_property.sql](supabase/migrations/202610080003_delete_property.sql) một lần sau hai migration trước. Không chạy lại các migration đã áp dụng.
+
+Quản trị viên/Quản lý mở trang chi tiết căn hộ → **Xóa căn hộ**, nhập chính xác tên căn hộ và xác nhận. Căn hộ chưa có hồ sơ người thuê, hợp đồng, tệp hợp đồng hoặc hóa đơn có thể xóa cùng các phòng trống và đơn giá, trong một giao dịch. Căn hộ đã có dữ liệu nghiệp vụ bị chặn xóa để giữ lịch sử; không xóa hợp đồng/thanh toán qua chức năng này. Vai trò Chỉ xem không có quyền xóa. Có thể hủy trước khi xác nhận; sau khi xóa thành công không thể hoàn tác bằng ứng dụng.

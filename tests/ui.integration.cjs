@@ -26,6 +26,12 @@ const uid = "00000000-0000-0000-0000-000000000001",
       "utf8",
     ),
   );
+  await db.exec(
+    fs.readFileSync(
+      root + "/supabase/migrations/202610080003_delete_property.sql",
+      "utf8",
+    ),
+  );
   const browser = await chromium.launch({
     headless: true,
     ...(process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH
@@ -315,7 +321,9 @@ const uid = "00000000-0000-0000-0000-000000000001",
   ])
     await page.getByLabel(label, { exact: true }).fill(v);
   await page.getByRole("button", { name: "Lưu đơn giá", exact: true }).click();
-  await page.getByText("Đã lưu đơn giá cho Test Building", { exact: true }).waitFor();
+  await page
+    .getByText("Đã lưu đơn giá cho Test Building", { exact: true })
+    .waitFor();
   await page.getByRole("button", { name: "Cấp quyền", exact: true }).click();
   await page.getByLabel("Email", { exact: true }).fill("viewer@test.invalid");
   await page.getByRole("button", { name: "Lưu lời mời" }).click();
@@ -440,6 +448,49 @@ const uid = "00000000-0000-0000-0000-000000000001",
   const popup = await opened;
   await popup.waitForURL(/object\/sign\/contracts/);
   await popup.close();
+  await page.getByRole("button", { name: "Quay lại", exact: true }).click();
+  assert.equal(
+    await page.getByRole("button", { name: "Xóa căn hộ", exact: true }).count(),
+    0,
+  );
+  await page.getByRole("button", { name: "Mở menu" }).click();
+  await page.getByRole("button", { name: /Test Viewer Đăng xuất/ }).click();
+  await page.getByLabel("Email", { exact: true }).fill("owner@test.invalid");
+  await page.getByLabel("Mật khẩu", { exact: true }).fill("password123");
+  await page.getByRole("button", { name: "Đăng nhập", exact: true }).click();
+  await page.getByRole("heading", { name: "Xin chào, Owner" }).waitFor();
+  await page.getByRole("button", { name: "Mở menu" }).click();
+  await page.getByRole("button", { name: /^Căn hộ/ }).click();
+  await page.getByRole("button", { name: "Thêm căn hộ", exact: true }).click();
+  await page.getByLabel("Tên căn hộ", { exact: true }).fill("Delete UI");
+  await page.getByLabel("Địa chỉ", { exact: true }).fill("Address");
+  await page.getByLabel("Số phòng", { exact: true }).fill("1");
+  await page
+    .getByLabel("Giá thuê căn hộ / tháng (VNĐ)", { exact: true })
+    .fill("0");
+  await page
+    .getByRole("button", { name: "Thêm căn hộ", exact: true })
+    .last()
+    .click();
+  await page.getByRole("button", { name: /Delete UI Address/ }).click();
+  await page.getByRole("button", { name: "Xóa căn hộ", exact: true }).click();
+  await page.getByRole("button", { name: "Hủy", exact: true }).click();
+  await page.getByRole("heading", { name: "Delete UI", exact: true }).waitFor();
+  await page.getByRole("button", { name: "Xóa căn hộ", exact: true }).click();
+  await page.getByLabel("Nhập chính xác tên căn hộ để xác nhận").fill("wrong");
+  await page.getByRole("button", { name: "Xác nhận xóa căn hộ" }).click();
+  await page.getByText("Tên xác nhận phải khớp chính xác tên căn hộ").waitFor();
+  await page
+    .getByLabel("Nhập chính xác tên căn hộ để xác nhận")
+    .fill("Delete UI");
+  await page.getByRole("button", { name: "Xác nhận xóa căn hộ" }).click();
+  await page
+    .getByRole("heading", { name: "Căn hộ của bạn", exact: true })
+    .waitFor();
+  assert.equal(
+    await page.getByRole("button", { name: /Delete UI Address/ }).count(),
+    0,
+  );
   assert.deepEqual(errors, []);
   console.log(
     "PASS: login, empty database, workspace, property rent, room rent, service rates, invitation, tenant, contract upload, invoice, partial payment, reload persistence, mobile layout, viewer permissions. Backend = local PostgreSQL with real migration; Auth/Storage HTTP simulated.",

@@ -54,6 +54,12 @@ test("migration, authorization and billing integration", async (t) => {
       "utf8",
     ),
   );
+  await db.exec(
+    readFileSync(
+      "supabase/migrations/202610080003_delete_property.sql",
+      "utf8",
+    ),
+  );
   await t.test("fresh database contains no example business data", async () => {
     for (const table of [
       "organizations",
@@ -471,6 +477,117 @@ test("migration, authorization and billing integration", async (t) => {
           )
         )[0].public,
         false,
+      );
+    },
+  );
+  await t.test(
+    "property deletion requires authorization and preserves history",
+    async () => {
+      await as(users.manager);
+      const target = (
+        await query<{ id: string }>(
+          `select public.create_property($1,'Delete test','Address',0,2) as id`,
+          [org],
+        )
+      )[0].id;
+      await db.query(
+        `insert into property_service_rates(property_id,organization_id,electricity,water,trash,wifi,laundry) values($1,$2,1,1,0,0,0)`,
+        [target, org],
+      );
+      await as(users.viewer);
+      await reject(
+        `select public.delete_property($1,$2,'Delete test')`,
+        [org, target],
+        /quyền/,
+      );
+      await as(users.outsider);
+      await reject(
+        `select public.delete_property($1,$2,'Delete test')`,
+        [org, target],
+        /quyền/,
+      );
+      await as(users.manager);
+      await reject(
+        `delete from properties where id=$1`,
+        [target],
+        /permission denied/,
+      );
+      await reject(
+        `select public.delete_property($1,$2,'wrong')`,
+        [org, target],
+        /khớp/,
+      );
+      await reject(
+        `select public.delete_property($1,$2,'Building A')`,
+        [org, property],
+        /Lịch sử/,
+      );
+      await db.query(`select public.delete_property($1,$2,'Delete test')`, [
+        org,
+        target,
+      ]);
+      assert.equal(
+        (await query(`select * from properties where id=$1`, [target])).length,
+        0,
+      );
+      assert.equal(
+        (await query(`select * from rooms where property_id=$1`, [target]))
+          .length,
+        0,
+      );
+      assert.equal(
+        (
+          await query(
+            `select * from property_service_rates where property_id=$1`,
+            [target],
+          )
+        ).length,
+        0,
+      );
+      assert.equal(
+        (await query(`select * from invoices where id=$1`, [invoice])).length,
+        1,
+      );
+      assert.equal(
+        (await query(`select * from payments where invoice_id=$1`, [invoice]))
+          .length,
+        2,
+      );
+      const files = (
+        await query<{ id: string }>(
+          `select public.create_property($1,'Files','Address',0,1) as id`,
+          [org],
+        )
+      )[0].id;
+      const fileRoom = (
+        await query<{ id: string }>(
+          `select id from rooms where property_id=$1`,
+          [files],
+        )
+      )[0].id;
+      const path = org + "/" + fileRoom + "/orphan.pdf";
+      await db.query(
+        `insert into storage.objects(bucket_id,name) values('contracts',$1)`,
+        [path],
+      );
+      await reject(
+        `select public.delete_property($1,$2,'Files')`,
+        [org, files],
+        /tệp hợp đồng/,
+      );
+      assert.equal(
+        (await query(`select * from rooms where id=$1`, [fileRoom])).length,
+        1,
+      );
+      await db.query(`delete from storage.objects where name=$1`, [path]);
+      await db.query(`select public.delete_property($1,$2,'Files')`, [
+        org,
+        files,
+      ]);
+      await reject(
+        `insert into storage.objects(bucket_id,name) values('contracts',$1)`,
+        [path],
+        /row-level security/,
       );
     },
   );

@@ -2034,3 +2034,17 @@ select:focus {
 .property-rates + .property-rates {
   margin-top: 22px;
 }
+.danger-button {
+  border: 1px solid #e5bbb2;
+  color: #a54b40;
+  background: #fff7f4;
+  padding: 11px 15px;
+  border-radius: 7px;
+  font-size: 11px;
+}
+.danger-button:hover {
+  background: #ffe9e3;
+}
+.delete-modal .data-form .primary {
+  background: #a54b40;
+}

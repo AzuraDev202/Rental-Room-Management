@@ -3,6 +3,7 @@ import { useEffect, useState, useCallback } from "react";
 import type { Session } from "@supabase/supabase-js";
 import {
   Home,
+  Trash2,
   LayoutDashboard,
   Building2,
   Users,
@@ -50,6 +51,7 @@ import {
   inviteSchema,
   workspaceSchema,
   contractSchema,
+  deletePropertySchema,
 } from "../lib/forms";
 import {
   money,
@@ -619,6 +621,15 @@ function Workspace({ session }: { session: Session }) {
                   }}
                 />
               </label>
+              {page === "property" && property && canWrite && (
+                <button
+                  className="danger-button"
+                  disabled={loading || busy}
+                  onClick={() => setModal("property-delete")}
+                >
+                  <Trash2 size={17} /> Xóa căn hộ
+                </button>
+              )}
               {page === "properties" && canWrite && (
                 <button
                   className="primary"
@@ -1428,7 +1439,11 @@ function Workspace({ session }: { session: Session }) {
       )}
       {modal && (
         <div className="overlay">
-          <section className="modal">
+          <section
+            className={
+              "modal " + (modal === "property-delete" ? "delete-modal" : "")
+            }
+          >
             <button
               className="close"
               aria-label="Đóng"
@@ -1437,6 +1452,53 @@ function Workspace({ session }: { session: Session }) {
             >
               <X size={20} />
             </button>
+            {modal === "property-delete" && property && (
+              <>
+                <h2>Xóa căn hộ {property.name}?</h2>
+                <p>
+                  Thao tác này không thể hoàn tác. Các phòng trống và đơn giá
+                  của căn hộ sẽ được xóa cùng.
+                </p>
+                <p>
+                  Chỉ có thể xóa căn hộ chưa có hồ sơ người thuê, hợp đồng, tệp
+                  hợp đồng hoặc hóa đơn. Lịch sử đã phát sinh được giữ lại.
+                </p>
+                <DataForm
+                  schema={deletePropertySchema(property.name)}
+                  fields={[
+                    {
+                      name: "confirmation_name",
+                      label: "Nhập chính xác tên căn hộ để xác nhận",
+                      placeholder: property.name,
+                    },
+                  ]}
+                  defaults={{ confirmation_name: "" }}
+                  submit="Xác nhận xóa căn hộ"
+                  onSubmit={async (v) => {
+                    await save(
+                      () =>
+                        rpc("delete_property", {
+                          org,
+                          target_property: property.id,
+                          confirmation_name: v.confirmation_name,
+                        }),
+                      "Đã xóa căn hộ " + property.name,
+                    );
+                    setPropertyId("");
+                    setRoomId("");
+                    if (chartProperty === property.id) setChartProperty("");
+                    navigate("properties");
+                  }}
+                />
+                <button
+                  className="secondary wide"
+                  disabled={busy}
+                  onClick={() => setModal("")}
+                >
+                  Hủy
+                </button>
+              </>
+            )}
             {modal === "property" && (
               <>
                 <h2>Thêm căn hộ</h2>

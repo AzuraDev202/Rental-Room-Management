@@ -52,3 +52,7 @@ Doanh thu = tổng payments theo tháng `paid_at` quy đổi Asia/Ho_Chi_Minh. M
 Mỗi lần tải dữ liệu truy vấn theo organization_id và phân trang 500 bản ghi, tránh bỏ mất dữ liệu do giới hạn trả về mặc định của API. Với hệ thống lớn hơn, nên bổ sung báo cáo tổng hợp tại PostgreSQL và phân trang UI thay vì tải toàn bộ hồ sơ.
 
 Migration thứ hai chuyển các đơn giá cũ sang từng căn hộ hiện có; giữ nguyên snapshot hóa đơn và thanh toán. Bảng `legacy_organization_service_rates` lưu bản gốc sau nâng cấp và bị thu hồi quyền truy cập frontend. Căn hộ mới cần cấu hình đơn giá riêng trước khi lập hóa đơn.
+
+## Xóa căn hộ
+
+RPC `delete_property(org, target_property, confirmation_name)` kiểm tra quyền admin/manager, tên xác nhận và khóa căn hộ/phòng. Chỉ cho xóa khi không có bất kỳ hồ sơ người thuê, hợp đồng, hóa đơn hoặc object hợp đồng nào; xóa phòng trống và đơn giá cùng căn hộ trong một giao dịch. Không cấp DELETE trực tiếp các bảng cho frontend. Các khóa và foreign key ngăn dữ liệu phát sinh đồng thời bị xóa nhầm. Hàm kiểm tra quyền upload Storage giữ khóa KEY SHARE trên phòng cho tới khi kết thúc giao dịch, tránh upload hợp đồng vào phòng đang được xóa.
