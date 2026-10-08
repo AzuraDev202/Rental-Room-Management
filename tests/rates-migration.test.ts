@@ -203,6 +203,9 @@ test("existing rates and tenant document history migrate without changing financ
       `insert into tenants(organization_id,room_id,full_name,gender,birth_date,identity_number,phone,move_in) values($1,$2,'Unbilled legacy','Nam','1990-01-01','123456789003','0901234569','2000-01-01')`,
       [org, unbilledRoom],
     );
+    // Reproduce the real upgrade: archived property still has invoice history.
+    await db.query(`update tenants set move_out='2022-01-01' where id=$1`, [newcomer]);
+    await db.query(`select public.delete_property($1,$2,'A')`, [org, property]);
     await db.exec("reset role");
     await db.exec(
       readFileSync(
@@ -217,6 +220,16 @@ test("existing rates and tenant document history migrate without changing financ
         [invoice],
       )
     ).rows[0];
+    // The archive guard must be enabled again after the metadata backfill.
+    await db.exec("reset role");
+    await assert.rejects(
+      db.query(`update invoices set due_date=due_date+1 where id=$1`, [invoice]),
+      /Căn hộ đã xóa/,
+    );
+    assert.equal((await db.query<{ tgenabled: string }>(
+      `select tgenabled from pg_trigger where tgrelid='public.invoices'::regclass and tgname='guard_archived_property_write'`,
+    )).rows[0].tgenabled, "O");
+    await db.exec("set role authenticated");
     const legacyCycle = upgraded.billing_cycle_id;
     delete upgraded.billing_cycle_id;
     assert.deepEqual(upgraded, before);
