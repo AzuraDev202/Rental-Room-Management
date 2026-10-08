@@ -229,6 +229,13 @@ test("existing rates and tenant document history migrate without changing financ
     assert.equal((await db.query<{ tgenabled: string }>(
       `select tgenabled from pg_trigger where tgrelid='public.invoices'::regclass and tgname='guard_archived_property_write'`,
     )).rows[0].tgenabled, "O");
+    assert.equal((await db.query<{ tgenabled: string }>(
+      `select tgenabled from pg_trigger where tgrelid='public.tenants'::regclass and tgname='guard_archived_property_write'`,
+    )).rows[0].tgenabled, "O");
+    await assert.rejects(
+      db.query(`update tenants set move_out='2023-01-01' where id=$1`, [newcomer]),
+      /Căn hộ đã xóa/,
+    );
     await db.exec("set role authenticated");
     const legacyCycle = upgraded.billing_cycle_id;
     delete upgraded.billing_cycle_id;

@@ -21,11 +21,13 @@ insert into public.room_billing_cycles(organization_id,room_id,starts_on,electri
  (select electricity_old from public.invoices where room_id=r.id order by period limit 1),
  (select water_old from public.invoices where room_id=r.id order by period limit 1),true
  from public.rooms r where exists(select 1 from public.tenants where room_id=r.id) or exists(select 1 from public.invoices where room_id=r.id);
--- Unchanged tenant stays remain protected by their existing guards.
--- Archived invoices need this metadata backfill too. Disable only their archive
--- guard inside this transaction; ALTER TABLE locks exclude concurrent writes.
+-- Archived tenant and invoice history both need this metadata backfill.
+-- Disable only their archive guards inside this transaction; ALTER TABLE
+-- locks exclude concurrent writes. Stay identity guards remain active.
 -- All financial constraints and other triggers remain active.
+alter table public.tenants disable trigger guard_archived_property_write;
 update public.tenants t set billing_cycle_id=c.id,was_scheduled=(t.move_in>timezone('Asia/Ho_Chi_Minh',now())::date) from public.room_billing_cycles c where c.room_id=t.room_id;
+alter table public.tenants enable trigger guard_archived_property_write;
 alter table public.invoices disable trigger guard_archived_property_write;
 update public.invoices i set billing_cycle_id=c.id from public.room_billing_cycles c where c.room_id=i.room_id;
 alter table public.invoices enable trigger guard_archived_property_write;
