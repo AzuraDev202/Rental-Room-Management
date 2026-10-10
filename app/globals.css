@@ -2576,3 +2576,254 @@ header {
     padding-right: 16px;
   }
 }
+
+.operations-panel {
+  padding: 22px;
+  margin-bottom: 22px;
+}
+.operations-panel > .panel-heading {
+  padding: 0 0 18px;
+}
+.operations-panel label {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+.operations-panel input,
+.operations-panel select {
+  width: 100%;
+  min-width: 0;
+}
+.operations-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  margin: 20px 0;
+}
+.operations-metrics > div {
+  background: var(--bg);
+  padding: 16px;
+  border-radius: 10px;
+  overflow-wrap: anywhere;
+}
+.operations-metrics strong {
+  display: block;
+  margin-top: 10px;
+  font-size: 20px;
+}
+.finance-chart {
+  height: 300px;
+  width: 100%;
+  min-width: 0;
+  margin-top: 22px;
+}
+.operations-filters {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+.operation-row {
+  padding: 16px 0;
+  border-top: 1px solid var(--border);
+  overflow-wrap: anywhere;
+}
+.operation-row h3,
+.operation-row p {
+  margin: 0 0 8px;
+}
+.operation-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.operation-actions select {
+  width: auto;
+}
+.deposit-section {
+  margin: 22px 0;
+}
+.room-warnings {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 12px;
+}
+.warning-chip {
+  display: inline-block;
+  border-radius: 6px;
+  padding: 6px 8px;
+  font-size: 12px;
+}
+.warning-amber {
+  background: #fff3da;
+  color: #805511;
+}
+.warning-danger {
+  background: #fbe7e3;
+  color: #963b2e;
+}
+.dashboard-reminders {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+.muted {
+  color: var(--muted);
+}
+[data-theme="dark"] {
+  color-scheme: dark;
+  --green: #83c9af;
+  --ink: #e4eee9;
+  --muted: #aabcb2;
+  --border: #35493e;
+  --bg: #132019;
+}
+[data-theme="dark"] body {
+  background: var(--bg);
+  color: var(--ink);
+}
+[data-theme="dark"]
+  :is(
+    .sidebar,
+    .panel,
+    .modal,
+    .auth-card,
+    .room-card,
+    .stat,
+    .stat-card,
+    .property-card,
+    .setup-card,
+    .topbar,
+    .mobile-header,
+    .install-card
+  ) {
+  background: #1d2e24;
+  color: var(--ink);
+  border-color: var(--border);
+}
+[data-theme="dark"] :is(input, select, textarea, .secondary) {
+  background: #22372a;
+  color: var(--ink);
+  border-color: var(--border);
+}
+[data-theme="dark"] :is(.primary, .primary-button) {
+  background: #397b5e;
+  color: #fff;
+}
+[data-theme="dark"]
+  :is(
+    .sidebar nav button.active,
+    .status,
+    .nav-count,
+    .room-icon,
+    .bill-total,
+    .help-card,
+    .occupancy-ring
+  ) {
+  background-color: #294838;
+  color: #d0efe0;
+}
+[data-theme="dark"]
+  :is(
+    .table-wrap th,
+    thead,
+    .detail-list > div,
+    .operation-row,
+    .rates-property,
+    .bill-line,
+    .bill-summary,
+    .form-field label
+  ) {
+  color: var(--ink);
+  border-color: var(--border);
+}
+[data-theme="dark"] :is(.warning-amber, .status.pending) {
+  background: #4f3f22;
+  color: #ffdaa0;
+}
+[data-theme="dark"] .warning-danger {
+  background: #522f2b;
+  color: #ffc9bf;
+}
+[data-theme="dark"] .status.vacant {
+  background: #354039;
+  color: #c4d1c9;
+}
+[data-theme="dark"] .danger-button {
+  background: #4d2c27;
+  color: #ffcbc2;
+  border-color: #845148;
+}
+[data-theme="dark"] .recharts-default-tooltip {
+  background: #22372a !important;
+  border-color: var(--border) !important;
+}
+[data-theme="dark"] .recharts-cartesian-axis-tick text {
+  fill: #b8cbbf;
+}
+@media (max-width: 600px) {
+  .operations-panel {
+    padding: 16px;
+  }
+  .operations-panel .panel-heading,
+  .dashboard-reminders {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .operations-metrics,
+  .operations-filters {
+    grid-template-columns: 1fr;
+  }
+  .operations-metrics {
+    gap: 10px;
+  }
+  .operations-metrics strong {
+    font-size: 18px;
+  }
+  .operation-actions {
+    flex-direction: column;
+  }
+  .operation-actions select {
+    width: 100%;
+  }
+  .finance-chart {
+    height: 260px;
+  }
+}
+[data-theme="dark"]
+  :is(
+    .period,
+    .search,
+    .donut > div,
+    .invoice-formula,
+    .tenant-room-heading,
+    thead th,
+    .stat-icon,
+    .modal-icon,
+    .tenant-row,
+    .install-notice
+  ) {
+  background: #22372a;
+  color: var(--ink);
+  border-color: var(--border);
+}
+[data-theme="dark"]
+  :is(
+    .form-hint,
+    .stat-top,
+    .stat-foot,
+    .room-card p,
+    .panel-heading p,
+    .modal > p
+  ) {
+  color: var(--muted);
+}
+.sidebar {
+  overflow-y: auto;
+}
+[data-theme="dark"] nav button:hover {
+  background: #294838;
+}

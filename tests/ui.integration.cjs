@@ -68,6 +68,13 @@ const uid = "00000000-0000-0000-0000-000000000001",
       "utf8",
     ),
   );
+  if (!process.env.HH_TEST_SKIP_OPERATIONS)
+    await db.exec(
+      fs.readFileSync(
+        root + "/supabase/migrations/202610080010_operations.sql",
+        "utf8",
+      ),
+    );
   const browser = await chromium.launch({
     headless: true,
     ...(process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH
@@ -213,6 +220,9 @@ const uid = "00000000-0000-0000-0000-000000000001",
           "payments",
           "contracts",
           "invitations",
+          "deposit_entries",
+          "expenses",
+          "maintenance_requests",
         ].includes(table),
       );
       const params = [],
@@ -401,6 +411,34 @@ const uid = "00000000-0000-0000-0000-000000000001",
     .getByRole("heading", { name: "Sửa phòng" })
     .waitFor({ state: "hidden" });
   console.log("Property and room saved");
+  if (process.env.HH_TEST_SKIP_OPERATIONS) {
+    await page.getByText(/Để dùng đặt cọc, thu chi và bảo trì/).waitFor();
+    assert.equal(
+      await page
+        .getByRole("button", { name: "Thu chi", exact: true })
+        .isDisabled(),
+      true,
+    );
+    assert.equal(
+      await page
+        .getByRole("button", { name: "Bảo trì", exact: true })
+        .isDisabled(),
+      true,
+    );
+    await page.getByRole("button", { name: "Cài đặt", exact: true }).click();
+    await page
+      .getByRole("button", { name: "Sửa đơn giá · Test Building", exact: true })
+      .click();
+    await page.getByLabel("Điện (₫/kWh)", { exact: true }).waitFor();
+    assert.equal(errors.length, 0);
+    console.log(
+      "PASS: pre-010 database keeps login, property creation, room management and rate editing available with migration notice",
+    );
+    await browser.close();
+    await db.close();
+    return;
+  }
+
   await page.reload({ waitUntil: "networkidle" });
 
   await page.getByRole("button", { name: "Cài đặt", exact: true }).click();
@@ -1444,6 +1482,114 @@ const uid = "00000000-0000-0000-0000-000000000001",
   await page.getByText("Đã lập hóa đơn", { exact: true }).waitFor();
   console.log(
     "PASS: water per-person hides arrival and bill water inputs, calculates flat water total, and switching back to m³ requires a fresh baseline",
+  );
+  // Record and settle deposit without adding it to rental revenue.
+  await openWaterRoom();
+  await page.locator(".tenant-row").filter({ hasText: "Water Tenant" }).click();
+  await page
+    .getByRole("button", { name: "Ghi nhận đặt cọc", exact: true })
+    .click();
+  await page.getByLabel("Số tiền cọc (VNĐ)", { exact: true }).fill("1000000");
+  await page
+    .getByLabel("Nội dung giao dịch cọc", { exact: true })
+    .fill("Cọc nhận phòng");
+  await page
+    .getByRole("button", { name: "Lưu giao dịch cọc", exact: true })
+    .click();
+  await page
+    .getByRole("button", { name: "Ghi nhận đặt cọc", exact: true })
+    .waitFor();
+  assert.equal(
+    Number(
+      (await db.query("select sum(amount) as total from deposit_entries"))
+        .rows[0].total,
+    ),
+    1000000,
+  );
+  await page.getByRole("button", { name: "Đóng", exact: true }).click();
+  await page.getByRole("button", { name: "Bảo trì", exact: true }).click();
+  await page.getByRole("button", { name: "Thêm sự cố", exact: true }).click();
+  await page
+    .getByLabel("Phòng xảy ra sự cố", { exact: true })
+    .selectOption(waterRoom);
+  await page.getByLabel("Tên sự cố", { exact: true }).fill("Rò ống nước UI");
+  await page
+    .getByLabel("Mô tả sự cố", { exact: true })
+    .fill("Ống nước dưới bồn rửa");
+  await page.getByLabel("Mức độ ưu tiên", { exact: true }).selectOption("high");
+  await page.getByRole("button", { name: "Lưu sự cố", exact: true }).click();
+  await page
+    .getByRole("heading", { name: "Rò ống nước UI", exact: true })
+    .waitFor();
+  await page
+    .getByRole("button", { name: "Ghi chi phí sửa chữa", exact: true })
+    .click();
+  await page.getByLabel("Số tiền chi (VNĐ)", { exact: true }).fill("150000");
+  await page
+    .getByRole("button", { name: "Lưu khoản chi", exact: true })
+    .click();
+  await page.getByText("Đã chi: 150.000 ₫", { exact: true }).waitFor();
+  await page
+    .getByLabel("Trạng thái · Rò ống nước UI", { exact: true })
+    .selectOption("done");
+  await page
+    .getByRole("heading", { name: "Rò ống nước UI", exact: true })
+    .waitFor({ state: "hidden" });
+  await page
+    .getByLabel("Trạng thái sự cố", { exact: true })
+    .selectOption("all");
+  await page
+    .getByRole("heading", { name: "Rò ống nước UI", exact: true })
+    .waitFor();
+  const currentPeriod = new Date()
+    .toLocaleDateString("en-CA", { timeZone: "Asia/Ho_Chi_Minh" })
+    .slice(0, 7);
+  await page.getByLabel("Kỳ xem", { exact: true }).fill(currentPeriod);
+  await page.getByRole("button", { name: "Thu chi", exact: true }).click();
+  await page.locator(".finance-chart .recharts-surface").first().waitFor();
+  await page.getByText("Rò ống nước UI · 150.000 ₫", { exact: true }).waitFor();
+  assert.equal(
+    (await db.query("select count(*) from expenses where voided_at is null"))
+      .rows[0].count,
+    1,
+  );
+  await page
+    .getByRole("button", { name: "Hủy khoản chi", exact: true })
+    .click();
+  await page
+    .getByRole("button", { name: "Xác nhận hủy khoản chi", exact: true })
+    .click();
+  await page.getByText("Đã hủy", { exact: true }).waitFor();
+  await page.getByRole("button", { name: "Nhắc việc", exact: true }).click();
+  await page
+    .getByRole("heading", { name: "Nhắc việc", exact: true, level: 1 })
+    .waitFor();
+  assert.ok(await page.getByText(/Quá hạn:/).count());
+  await page.setViewportSize({ width: 320, height: 568 });
+  for (const label of ["Thu chi", "Bảo trì", "Nhắc việc", "Cài đặt"]) {
+    await page.getByRole("button", { name: "Mở menu", exact: true }).click();
+    await page.getByRole("button", { name: label, exact: true }).click();
+    assert.equal(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth > window.innerWidth,
+      ),
+      false,
+    );
+  }
+  await page.getByRole("switch", { name: "Chế độ tối", exact: true }).click();
+  assert.equal(await page.locator("html").getAttribute("data-theme"), "dark");
+  await page.reload({ waitUntil: "networkidle" });
+  assert.equal(await page.locator("html").getAttribute("data-theme"), "dark");
+  await page.getByRole("button", { name: "Mở menu", exact: true }).click();
+  await page.getByRole("button", { name: "Cài đặt", exact: true }).click();
+  await page.screenshot({
+    path: "/tmp/hh-operations-dark-mobile.png",
+    fullPage: true,
+  });
+  await page.getByRole("switch", { name: "Chế độ tối", exact: true }).click();
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  console.log(
+    "PASS: deposit collection, maintenance status and linked costs, expense void audit, reminder list, mobile operations layouts and persistent dark mode",
   );
   for (let i = 1; i <= 12; i++) {
     await db.query("select create_property($1,$2,$3,0,1)", [

@@ -14,7 +14,7 @@ export function databaseError(error: {
     return new Error("Bạn không có quyền thực hiện thao tác này.");
   if (error.code === "23514")
     return new Error("Dữ liệu không hợp lệ. Vui lòng kiểm tra lại các trường.");
-  return new Error(error.message);
+  return Object.assign(new Error(error.message), { code: error.code });
 }
 export async function rows(table: string, org: string) {
   const output: Record<string, unknown>[] = [];
@@ -50,10 +50,36 @@ export async function loadData(org: string, admin: boolean): Promise<Data> {
     "invoice_tenants",
     "contract_tenants",
     "room_billing_cycles",
+    "deposit_entries",
+    "expenses",
+    "maintenance_requests",
     ...(admin ? ["invitations"] : []),
   ];
-  const result = await Promise.all(tables.map((t) => rows(t, org)));
+  let operationsMigrationRequired = false;
+  const operationTables = [
+    "deposit_entries",
+    "expenses",
+    "maintenance_requests",
+  ];
+  const result = await Promise.all(
+    tables.map(async (table) => {
+      try {
+        return await rows(table, org);
+      } catch (error) {
+        const code = (error as { code?: string }).code;
+        if (
+          operationTables.includes(table) &&
+          (code === "42P01" || code === "PGRST205")
+        ) {
+          operationsMigrationRequired = true;
+          return [];
+        }
+        throw error;
+      }
+    }),
+  );
   return {
+    operationsMigrationRequired,
     properties: result[0],
     rooms: result[1],
     tenants: result[2],
@@ -65,7 +91,10 @@ export async function loadData(org: string, admin: boolean): Promise<Data> {
     invoiceTenants: result[8],
     contractTenants: result[9],
     billingCycles: result[10],
-    invitations: result[11] || [],
+    deposits: result[11],
+    expenses: result[12],
+    maintenance: result[13],
+    invitations: result[14] || [],
   } as unknown as Data;
 }
 export async function rpc(name: string, args: Record<string, unknown>) {

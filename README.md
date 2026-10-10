@@ -5,7 +5,7 @@
 ## 1. Tạo và cấu hình Supabase
 
 1. Tạo dự án tại https://supabase.com/dashboard. Chọn vùng gần Việt Nam và lưu mật khẩu database trong trình quản lý mật khẩu.
-2. Mở **SQL Editor**, chạy lần lượt `supabase/migrations/202610080001_hh_home.sql` rồi `supabase/migrations/202610080002_property_service_rates.sql` rồi `supabase/migrations/202610080003_delete_property.sql` và `supabase/migrations/202610080004_tenant_document_history.sql` và `supabase/migrations/202610080005_delete_vacant_property.sql` rồi `supabase/migrations/202610080006_room_move_in_readings.sql` rồi `supabase/migrations/202610080007_remove_workspace_member.sql` rồi `supabase/migrations/202610080008_laundry_per_person.sql` rồi `supabase/migrations/202610080009_water_billing_modes.sql`, mỗi file một lần trên dự án mới. Migration tạo bảng, RPC, RLS và bucket `contracts` riêng tư; không tạo dữ liệu căn hộ/người thuê/hóa đơn.
+2. Mở **SQL Editor**, chạy lần lượt `supabase/migrations/202610080001_hh_home.sql` rồi `supabase/migrations/202610080002_property_service_rates.sql` rồi `supabase/migrations/202610080003_delete_property.sql` và `supabase/migrations/202610080004_tenant_document_history.sql` và `supabase/migrations/202610080005_delete_vacant_property.sql` rồi `supabase/migrations/202610080006_room_move_in_readings.sql` rồi `supabase/migrations/202610080007_remove_workspace_member.sql` rồi `supabase/migrations/202610080008_laundry_per_person.sql` rồi `supabase/migrations/202610080009_water_billing_modes.sql` rồi `supabase/migrations/202610080010_operations.sql`, mỗi file một lần trên dự án mới. Migration tạo bảng, RPC, RLS và bucket `contracts` riêng tư; không tạo dữ liệu căn hộ/người thuê/hóa đơn.
 3. Trong **Authentication → Providers → Email**, bật đăng ký email/password và **Confirm email**. Thiết lập mật khẩu tối thiểu 8 ký tự. Với môi trường production, cấu hình SMTP để gửi email xác nhận và đặt lại mật khẩu ổn định.
 4. Trong **Authentication → URL Configuration**, đặt Site URL theo domain triển khai và thêm redirect URL cho domain đó. Khi chạy local, thêm `http://localhost:3000` và `http://localhost:3000/**`. Production dùng domain HTTPS cụ thể, không dùng wildcard rộng.
 5. Lấy Project URL và **publishable key hoặc anon key** từ Project Settings → API. Chỉ hai giá trị công khai này được dùng trong frontend. Không dùng `service_role` hoặc secret key.
@@ -130,3 +130,16 @@ Lập hóa đơn chỉ nhập chỉ số điện/nước mới; mốc cũ, đơn
 ## Cách tính nước
 
 Chạy nội dung migration 009 sau 008. Cài đặt đơn giá → Cách tính nước: Theo m³ hoặc Theo người/tháng. Chế độ theo người bỏ chỉ số nước tại nhận phòng và lập hóa đơn, tiền nước = số người trong đợt thuê của kỳ × đơn giá; chốt số người, đơn giá, cách tính cùng hóa đơn. Không chia theo ngày; lịch chưa tới hoặc lịch hủy không tính. Đổi về m³ sau khi dùng chế độ theo người cần ghi mốc nước mới trước kỳ tiếp theo, không tính tiêu thụ của thời gian đã thu theo người. Hóa đơn cũ, thanh toán và công nợ giữ nguyên.
+
+## Đặt cọc, thu chi, bảo trì và nhắc việc
+
+Chạy **toàn bộ nội dung migration 010 sau 009** một lần trước khi dùng phiên bản này. Bảng mới có RLS và khóa liên kết trong cùng không gian; không có dữ liệu mẫu. Khi chưa áp dụng 010, app hiện nhắc cập nhật và vẫn giữ chức năng cũ; đặt cọc/thu chi/bảo trì được mở sau khi áp dụng migration và tải lại.
+
+- Thẻ phòng giữ trạng thái Trống/Đang ở và thêm nhãn nợ/quá hạn, hợp đồng sắp hết hạn (30 ngày), hợp đồng đã hết hạn. Chứng từ đã chuyển sang hồ sơ người rời đi không gây cảnh báo công nợ cho người mới.
+- Trong hồ sơ người thuê, mở **Đặt cọc → Ghi nhận đặt cọc**. Theo dõi nhận, khấu trừ (ghi lý do), hoàn cọc; không thể hoàn/khấu trừ quá cọc còn giữ. Giao dịch cọc là sổ riêng, không cộng vào doanh thu tiền thuê. Ghi nhận có mã chống gửi trùng và vẫn dùng được để hoàn cọc cho người đã rời đi.
+- **Thu chi** ghi khoản chi theo căn hộ/phòng/ngày chi, lọc căn hộ và kỳ. Biểu đồ cả năm gồm thực thu, thực chi, lợi nhuận vận hành = tiền thuê thực thu − chi phí thực chi. Không phải tổng tiền mặt: cọc/khấu trừ cọc không nằm trong chỉ tiêu này. Khoản chi sai có thể hủy bằng xác nhận; vẫn giữ bản ghi lịch sử.
+- **Bảo trì** do người quản lý ghi nhận, chọn phòng, mức ưu tiên, cập nhật Chờ xử lý/Đang xử lý/Hoàn thành/Đã hủy. Nút ghi chi phí sửa chữa tạo cùng một khoản chi trong Thu chi, không tính hai lần. Chi tiết phòng có lịch sử sửa chữa. Căn hộ đã xóa vẫn giữ lịch sử, không thêm hoặc sửa sự cố của căn hộ đó.
+- **Nhắc việc** tự tổng hợp hóa đơn còn nợ/quá hạn, hợp đồng cần gia hạn và phòng đang ở chưa lập hóa đơn tháng hiện tại. Có nút mở phòng hoặc thu tiền. Cần nhập chỉ số mới và xác nhận trước khi phát hành hóa đơn; không tự phát hành khi chưa có chỉ số. Nhắc việc hiện trong app, chưa tích hợp dịch vụ gửi email/SMS hay tác vụ nền.
+- **Cài đặt → Giao diện → Chế độ tối** lưu lựa chọn trên thiết bị. Người chỉ xem được xem các sổ nhưng không được ghi cọc, khoản chi hoặc sửa bảo trì.
+
+Kiểm thử thao tác bằng PostgreSQL PGlite và HTTP Auth/Storage mô phỏng; không tự áp migration hay gửi thông báo trên dự án Supabase thật.

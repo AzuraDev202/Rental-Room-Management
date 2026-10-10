@@ -1,10 +1,20 @@
 "use client";
 import { z } from "zod";
+import { Deposits } from "../components/deposits";
+import {
+  FinancePanel,
+  MaintenancePanel,
+  RemindersPanel,
+} from "../components/operations";
+import { ThemeSwitch } from "../components/theme";
+import { roomAlerts, billingToPrepare } from "../lib/operations";
 import { AppInstall } from "../components/app-install";
 import { useEffect, useState, useCallback } from "react";
 import type { Session } from "@supabase/supabase-js";
 import {
   Home,
+  Bell,
+  Wrench,
   Trash2,
   LayoutDashboard,
   Building2,
@@ -381,6 +391,9 @@ function Workspace({ session }: { session: Session }) {
     ["dashboard", "Tổng quan", LayoutDashboard],
     ["properties", "Căn hộ", Building2],
     ["tenants", "Người thuê", Users],
+    ["finance", "Thu chi", Wallet],
+    ["maintenance", "Bảo trì", Wrench],
+    ["reminders", "Nhắc việc", Bell],
     ["settings", "Cài đặt", Settings],
   ] as const;
   const navigate = (next: string) => {
@@ -468,6 +481,9 @@ function Workspace({ session }: { session: Session }) {
     property: property?.name || "Căn hộ",
     room: room?.name || "Phòng",
     tenants: "Người thuê",
+    finance: "Thu chi & lợi nhuận",
+    maintenance: "Sự cố & bảo trì",
+    reminders: "Nhắc việc",
     settings: "Cài đặt",
   };
   const tenantStayLocked =
@@ -629,6 +645,10 @@ function Workspace({ session }: { session: Session }) {
                   ? "active"
                   : ""
               }
+              disabled={
+                data.operationsMigrationRequired &&
+                ["finance", "maintenance"].includes(id)
+              }
               onClick={() => navigate(id)}
             >
               <Icon size={19} />
@@ -750,6 +770,19 @@ function Workspace({ session }: { session: Session }) {
               </button>
             </div>
           )}
+          {data.operationsMigrationRequired && (
+            <div className="banner" role="status">
+              Để dùng đặt cọc, thu chi và bảo trì, hãy chạy toàn bộ migration
+              010 sau 009 trong Supabase SQL Editor. Các chức năng hiện có vẫn
+              hoạt động.
+              <button
+                disabled={busy}
+                onClick={() => act(refresh, "Đã tải lại dữ liệu")}
+              >
+                Tải lại sau khi cập nhật
+              </button>
+            </div>
+          )}
           {loading ? (
             <Loading label="Đang tải dữ liệu..." />
           ) : (
@@ -794,6 +827,33 @@ function Workspace({ session }: { session: Session }) {
                       foot={`${pending.length} hóa đơn chưa thu đủ`}
                     />
                   </div>
+                  <section className="panel operations-panel dashboard-reminders">
+                    <div>
+                      <h2>Việc cần xử lý</h2>
+                      <p>
+                        {
+                          data.invoices.filter(
+                            (i) =>
+                              balance(i, data.payments) > 0 &&
+                              i.due_date < localDay(),
+                          ).length
+                        }{" "}
+                        hóa đơn quá hạn · {billingToPrepare(data).length} phòng
+                        chưa lập hóa đơn tháng này ·{" "}
+                        {currentRooms.reduce((sum, r) => {
+                          const a = roomAlerts(data, r.id);
+                          return sum + a.expiring.length + a.expired.length;
+                        }, 0)}{" "}
+                        hợp đồng cần gia hạn
+                      </p>
+                    </div>
+                    <button
+                      className="secondary"
+                      onClick={() => navigate("reminders")}
+                    >
+                      Xem nhắc việc
+                    </button>
+                  </section>
                   <div className="analytics">
                     <section className="panel revenue">
                       <div className="panel-heading">
@@ -1067,6 +1127,7 @@ function Workspace({ session }: { session: Session }) {
                               ? `${activeTenants(r.id).length} người đang ở`
                               : "Chưa có người thuê"}
                           </p>
+                          <RoomWarnings data={data} roomId={r.id} />
                           <div className="room-foot">
                             <b>{money(r.monthly_rent)}/tháng</b>
                             <ArrowRight size={17} />
@@ -1467,6 +1528,16 @@ function Workspace({ session }: { session: Session }) {
                   </section>
                 </div>
               )}
+              {page === "room" && room && !data.operationsMigrationRequired && (
+                <MaintenancePanel
+                  key={org + room.id}
+                  data={data}
+                  org={org}
+                  canWrite={canWrite && !!property && !property.deleted_at}
+                  onChanged={refresh}
+                  roomId={room.id}
+                />
+              )}
               {page === "tenants" && (
                 <TenantDirectory
                   data={data}
@@ -1517,9 +1588,44 @@ function Workspace({ session }: { session: Session }) {
                   </section>
                 </>
               )}
+              {page === "finance" && !data.operationsMigrationRequired && (
+                <FinancePanel
+                  key={org}
+                  data={data}
+                  org={org}
+                  period={period}
+                  canWrite={canWrite}
+                  onChanged={refresh}
+                />
+              )}
+              {page === "maintenance" && !data.operationsMigrationRequired && (
+                <MaintenancePanel
+                  key={org}
+                  data={data}
+                  org={org}
+                  canWrite={canWrite}
+                  onChanged={refresh}
+                />
+              )}
+              {page === "reminders" && (
+                <RemindersPanel
+                  data={data}
+                  canWrite={canWrite}
+                  onRoom={(r) => {
+                    setPeriod(currentMonth());
+                    openRoom(r);
+                  }}
+                  onInvoice={(i) => {
+                    setTenant(null);
+                    setInvoice(i);
+                    setModal(canWrite ? "payment" : "invoice-detail");
+                  }}
+                />
+              )}
               {page === "settings" && (
                 <>
                   <AppInstall />
+                  <ThemeSwitch />
                   {currentProperties.length > 0 && (
                     <RatesDirectory
                       key={org}
@@ -2018,6 +2124,15 @@ function Workspace({ session }: { session: Session }) {
                     </div>
                   ))}
                 </div>
+                {!data.operationsMigrationRequired && (
+                  <Deposits
+                    data={data}
+                    tenantId={tenant.id}
+                    org={org}
+                    canWrite={canWrite}
+                    onChanged={refresh}
+                  />
+                )}
                 <h3 className="history-title">Hợp đồng của người thuê</h3>
                 {data.contracts
                   .filter((c) =>
@@ -2846,6 +2961,31 @@ function exportInvoices(invoices: Invoice[], data: Data) {
   a.download = "HH-HOME-hoa-don.csv";
   a.click();
   URL.revokeObjectURL(url);
+}
+
+function RoomWarnings({ data, roomId }: { data: Data; roomId: string }) {
+  const warnings = roomAlerts(data, roomId);
+  return (
+    <div className="room-warnings">
+      {warnings.debt > 0 && (
+        <span
+          className={
+            "warning-chip " +
+            (warnings.overdue ? "warning-danger" : "warning-amber")
+          }
+        >
+          {warnings.overdue ? "Quá hạn" : "Còn phải thu"}:{" "}
+          {money(warnings.debt)}
+        </span>
+      )}
+      {warnings.expiring.length > 0 && (
+        <span className="warning-chip warning-amber">Hợp đồng sắp hết hạn</span>
+      )}
+      {warnings.expired.length > 0 && (
+        <span className="warning-chip warning-danger">Hợp đồng đã hết hạn</span>
+      )}
+    </div>
+  );
 }
 
 function RatesDirectory({

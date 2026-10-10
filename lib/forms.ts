@@ -166,3 +166,29 @@ export const deletePropertySchema = (name: string) =>
       .string()
       .refine((v) => v === name, "Tên xác nhận phải khớp chính xác tên căn hộ"),
   });
+
+export const depositSchema = z.object({
+  kind: z.enum(["receive", "refund", "deduct"]),
+  amount: amount.refine((v) => v > 0, "Số tiền phải lớn hơn 0"),
+  happened_on: date.refine(
+    (v) =>
+      v <=
+      new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Ho_Chi_Minh" }),
+    "Ngày không được ở tương lai",
+  ),
+  note: text(500),
+});
+export const expenseSchema = z.object({
+  property_id: z.string().uuid("Chọn căn hộ"),
+  room_id: z.union([z.literal(""), z.string().uuid()]),
+  amount: amount.refine((v) => v > 0, "Số tiền phải lớn hơn 0"),
+  category: z.enum(["maintenance", "utilities", "operations", "other"]),
+  title: text(120),
+  paid_on: date,
+});
+export const maintenanceSchema = z.object({
+  room_id: z.string().uuid("Chọn phòng"),
+  title: text(120),
+  description: z.string().max(2000),
+  priority: z.enum(["low", "normal", "high"]),
+});

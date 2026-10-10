@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
+import { ThemeProvider } from "../components/theme";
 import { RegisterApp } from "../components/app-install";
 export const metadata: Metadata = {
   title: "HH HOME · Quản lý phòng trọ",
@@ -21,7 +22,7 @@ export default function RootLayout({
     <html lang="vi">
       <body>
         <RegisterApp />
-        {children}
+        <ThemeProvider>{children}</ThemeProvider>
       </body>
     </html>
   );

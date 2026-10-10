@@ -116,7 +116,42 @@ export type BillingCycle = {
   water_meter_ready?: boolean;
   is_legacy: boolean;
 };
+export type DepositEntry = {
+  id: string;
+  organization_id: string;
+  tenant_id: string;
+  kind: "receive" | "refund" | "deduct";
+  amount: number;
+  happened_on: string;
+  note: string;
+};
+export type Expense = {
+  id: string;
+  organization_id: string;
+  property_id: string;
+  room_id: string | null;
+  maintenance_id: string | null;
+  amount: number;
+  category: string;
+  title: string;
+  paid_on: string;
+  voided_at: string | null;
+};
+export type Maintenance = {
+  id: string;
+  organization_id: string;
+  room_id: string;
+  title: string;
+  description: string;
+  priority: "low" | "normal" | "high";
+  status: "new" | "in_progress" | "done" | "cancelled";
+  created_at: string;
+};
 export type Data = {
+  operationsMigrationRequired: boolean;
+  deposits: DepositEntry[];
+  expenses: Expense[];
+  maintenance: Maintenance[];
   billingCycles: BillingCycle[];
   invoiceTenants: InvoiceTenant[];
   contractTenants: ContractTenant[];
@@ -131,6 +166,10 @@ export type Data = {
   invitations: Invitation[];
 };
 export const emptyData: Data = {
+  operationsMigrationRequired: false,
+  deposits: [],
+  expenses: [],
+  maintenance: [],
   billingCycles: [],
   invoiceTenants: [],
   contractTenants: [],
