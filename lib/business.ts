@@ -25,6 +25,7 @@ export function calculateBill(
   eNew: number,
   wOld: number,
   wNew: number,
+  laundryPeople = 1,
 ) {
   if (
     ![
@@ -38,6 +39,7 @@ export function calculateBill(
       eNew,
       wOld,
       wNew,
+      laundryPeople,
     ].every((n) => Number.isSafeInteger(n) && n >= 0) ||
     eNew < eOld ||
     wNew < wOld
@@ -49,7 +51,7 @@ export function calculateBill(
     (wNew - wOld) * rates.water +
     rates.trash +
     rates.wifi +
-    rates.laundry;
+    rates.laundry * laundryPeople;
   if (!Number.isSafeInteger(total)) throw new Error("Số tiền vượt giới hạn");
   return total;
 }

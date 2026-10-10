@@ -1206,6 +1206,104 @@ test("migration, authorization and billing integration", async (t) => {
     },
   );
   await t.test(
+    "per-person laundry snapshots resident counts and preserves historical bills",
+    async () => {
+      await as(users.owner);
+      const history = await query(
+        `select id,total,laundry_fee from invoices order by id`,
+      );
+      await db.exec("reset role");
+      await db.exec(
+        readFileSync(
+          "supabase/migrations/202610080008_laundry_per_person.sql",
+          "utf8",
+        ),
+      );
+      await as(users.owner);
+      assert.deepEqual(
+        await query(`select id,total,laundry_fee from invoices order by id`),
+        history,
+      );
+      const p = (
+        await query<{ id: string }>(
+          `select create_property($1,'Laundry Test','Address',0,1) as id`,
+          [org],
+        )
+      )[0].id;
+      const r = (
+        await query<{ id: string }>(
+          `select id from rooms where property_id=$1`,
+          [p],
+        )
+      )[0].id;
+      await db.query(
+        `insert into property_service_rates(property_id,organization_id,electricity,water,trash,wifi,laundry) values($1,$2,0,0,0,0,50000)`,
+        [p, org],
+      );
+      const a = (
+        await query<{ id: string }>(
+          `insert into tenants(organization_id,room_id,full_name,gender,birth_date,identity_number,phone,move_in,electricity_initial,water_initial) values($1,$2,'Laundry A','Nam','1990-01-01','623456789001','0901234567','2020-01-01',0,0) returning id`,
+          [org, r],
+        )
+      )[0].id;
+      await db.query(
+        `insert into tenants(organization_id,room_id,full_name,gender,birth_date,identity_number,phone,move_in) values($1,$2,'Laundry B','Nam','1990-01-01','623456789002','0901234568','2020-01-01')`,
+        [org, r],
+      );
+      const id = (
+        await query<{ id: string }>(
+          `select create_invoice($1,$2,'2020-01-01','2020-01-05',0,0,0,0) as id`,
+          [org, r],
+        )
+      )[0].id;
+      const bill = (
+        await query<{
+          laundry_count: number;
+          laundry_rate: number;
+          laundry_fee: number;
+          total: number;
+        }>(`select * from invoices where id=$1`, [id])
+      )[0];
+      assert.equal(bill.laundry_count, 2);
+      assert.equal(Number(bill.laundry_rate), 50000);
+      assert.equal(Number(bill.laundry_fee), 100000);
+      assert.equal(Number(bill.total), 100000);
+      await db.query(`update tenants set move_out='2020-02-01' where id=$1`, [
+        a,
+      ]);
+      await db.query(
+        `update property_service_rates set laundry=80000 where property_id=$1`,
+        [p],
+      );
+      assert.equal(
+        Number(
+          (
+            await query<{ total: number }>(
+              `select total from invoices where id=$1`,
+              [id],
+            )
+          )[0].total,
+        ),
+        100000,
+      );
+      const next = (
+        await query<{ id: string }>(
+          `select create_invoice($1,$2,'2020-02-01','2020-02-05',0,0,0,0) as id`,
+          [org, r],
+        )
+      )[0].id;
+      assert.equal(
+        (
+          await query<{ laundry_count: number }>(
+            `select laundry_count from invoices where id=$1`,
+            [next],
+          )
+        )[0].laundry_count,
+        1,
+      );
+    },
+  );
+  await t.test(
     "admin removes workspace access while preserving users, history and last admin",
     async () => {
       await as(users.manager);

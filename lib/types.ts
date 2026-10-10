@@ -65,6 +65,8 @@ export type Invoice = {
   trash_fee: number;
   wifi_fee: number;
   laundry_fee: number;
+  laundry_rate?: number | null;
+  laundry_count?: number | null;
 };
 export type Payment = {
   id: string;

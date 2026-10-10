@@ -95,7 +95,7 @@ const rateFields: Field[] = [
   { name: "service", label: "Dịch vụ (đ/phòng/tháng)", type: "number", min: 0 },
   {
     name: "laundry",
-    label: "Máy giặt (₫/phòng/tháng)",
+    label: "Máy giặt (đ/người/tháng)",
     type: "number",
     min: 0,
   },
@@ -1351,6 +1351,18 @@ function Workspace({ session }: { session: Session }) {
                         baseline={billingCycle}
                         room={room}
                         rates={roomRates}
+                        laundryPeople={
+                          data.tenants.filter(
+                            (t) =>
+                              t.room_id === room.id &&
+                              t.billing_cycle_id === billingCycle.id &&
+                              t.move_in < nextMonth(period) &&
+                              t.move_in <= localDay() &&
+                              (!t.move_out ||
+                                (t.move_out > period + "-01" &&
+                                  t.move_out > t.move_in)),
+                          ).length
+                        }
                         onSubmit={(v) =>
                           save(
                             () =>
@@ -2175,7 +2187,12 @@ function Workspace({ session }: { session: Session }) {
                       `${invoice.water_new - invoice.water_old} m³ × ${money(invoice.water_rate)}`,
                     ],
                     ["Dịch vụ", money(invoice.trash_fee + invoice.wifi_fee)],
-                    ["Máy giặt", money(invoice.laundry_fee)],
+                    [
+                      invoice.laundry_count != null
+                        ? `Máy giặt · ${invoice.laundry_count} người × ${money(invoice.laundry_rate || 0)}`
+                        : "Máy giặt",
+                      money(invoice.laundry_fee),
+                    ],
                     ["Tổng hóa đơn", money(invoice.total)],
                     ["Còn phải thu", money(balance(invoice, data.payments))],
                     ["Hạn thanh toán", invoice.due_date],
@@ -2421,11 +2438,13 @@ function InvoiceForm({
   previous,
   room,
   rates,
+  laundryPeople,
   onSubmit,
 }: {
   period: string;
   previous: Invoice | null;
   baseline: BillingCycle;
+  laundryPeople: number;
   room: Room;
   rates: Rates;
   onSubmit: (v: Record<string, unknown>) => Promise<void>;
@@ -2486,6 +2505,7 @@ function InvoiceForm({
               vals[1],
               vals[2],
               vals[3],
+              laundryPeople,
             ),
           );
         } catch {
@@ -2515,7 +2535,8 @@ function InvoiceForm({
           Dịch vụ <b>{money(rates.trash + rates.wifi)}</b>
         </div>
         <div className="bill-line">
-          Máy giặt <b>{money(rates.laundry)}</b>
+          Máy giặt · {laundryPeople} người × {money(rates.laundry)}
+          <b>{money(rates.laundry * laundryPeople)}</b>
         </div>
         <div className="bill-total">
           Tổng dự kiến{" "}

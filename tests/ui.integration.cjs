@@ -56,6 +56,12 @@ const uid = "00000000-0000-0000-0000-000000000001",
       "utf8",
     ),
   );
+  await db.exec(
+    fs.readFileSync(
+      root + "/supabase/migrations/202610080008_laundry_per_person.sql",
+      "utf8",
+    ),
+  );
   const browser = await chromium.launch({
     headless: true,
     ...(process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH
@@ -392,7 +398,7 @@ const uid = "00000000-0000-0000-0000-000000000001",
     ["Điện (₫/kWh)", "3500"],
     ["Nước (₫/m³)", "20000"],
     ["Dịch vụ (đ/phòng/tháng)", "100000"],
-    ["Máy giặt (₫/phòng/tháng)", "50000"],
+    ["Máy giặt (đ/người/tháng)", "50000"],
   ])
     await page.getByLabel(label, { exact: true }).fill(v);
   await page.getByRole("button", { name: "Lưu đơn giá", exact: true }).click();
