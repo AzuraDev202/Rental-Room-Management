@@ -1818,12 +1818,19 @@ function Workspace({ session }: { session: Session }) {
                 {modal === "tenant-add" ? (
                   <TenantArrivalForm
                     data={data}
-                    fields={tenantFields}
+                    fields={
+                      page === "room"
+                        ? tenantFields.filter(
+                            (field) => field.name !== "room_id",
+                          )
+                        : tenantFields
+                    }
                     roomId={page === "room" ? roomId : ""}
                     onSubmit={(v) =>
                       save(async () => {
                         await insert("tenants", {
                           ...v,
+                          room_id: page === "room" ? roomId : v.room_id,
                           email: v.email || null,
                           organization_id: org,
                         });
