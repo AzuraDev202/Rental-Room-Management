@@ -118,3 +118,5 @@ App cần Internet để đăng nhập và thao tác dữ liệu Supabase. Servi
 ## Xóa người dùng khỏi không gian
 
 Chạy nội dung `supabase/migrations/202610080007_remove_workspace_member.sql` một lần sau migration 006. Quản trị viên vào Cài đặt → Quản lý người dùng → Xóa người dùng, nhập email để xác nhận. Chỉ thu hồi quyền của không gian hiện tại và hủy lời mời còn chờ tại đó; giữ tài khoản đăng nhập, quyền ở không gian khác và toàn bộ chứng từ. Không được xóa quản trị viên cuối cùng hoặc tự xóa quyền của mình.
+
+Đơn giá **Dịch vụ (đ/phòng/tháng)** gộp Rác + Wifi thành một ô; Máy giặt giữ riêng. Tổng cũ tự hiển thị bằng hai khoản cộng lại; khi lưu, app dùng khoản gộp tương thích schema hiện có. Hóa đơn đã chốt không đổi tổng tiền, phần chi tiết hiển thị một dòng Dịch vụ. Không cần migration mới.

@@ -92,8 +92,7 @@ const roleNames: Record<Role, string> = {
 const rateFields: Field[] = [
   { name: "electricity", label: "Điện (₫/kWh)", type: "number", min: 0 },
   { name: "water", label: "Nước (₫/m³)", type: "number", min: 0 },
-  { name: "trash", label: "Rác (₫/phòng/tháng)", type: "number", min: 0 },
-  { name: "wifi", label: "Wifi (₫/phòng/tháng)", type: "number", min: 0 },
+  { name: "service", label: "Dịch vụ (đ/phòng/tháng)", type: "number", min: 0 },
   {
     name: "laundry",
     label: "Máy giặt (₫/phòng/tháng)",
@@ -2175,8 +2174,7 @@ function Workspace({ session }: { session: Session }) {
                       "Nước",
                       `${invoice.water_new - invoice.water_old} m³ × ${money(invoice.water_rate)}`,
                     ],
-                    ["Rác", money(invoice.trash_fee)],
-                    ["Wifi", money(invoice.wifi_fee)],
+                    ["Dịch vụ", money(invoice.trash_fee + invoice.wifi_fee)],
                     ["Máy giặt", money(invoice.laundry_fee)],
                     ["Tổng hóa đơn", money(invoice.total)],
                     ["Còn phải thu", money(balance(invoice, data.payments))],
@@ -2514,8 +2512,10 @@ function InvoiceForm({
           Tiền phòng <b>{money(room.monthly_rent)}</b>
         </div>
         <div className="bill-line">
-          Rác · Wifi · Máy giặt{" "}
-          <b>{money(rates.trash + rates.wifi + rates.laundry)}</b>
+          Dịch vụ <b>{money(rates.trash + rates.wifi)}</b>
+        </div>
+        <div className="bill-line">
+          Máy giặt <b>{money(rates.laundry)}</b>
         </div>
         <div className="bill-total">
           Tổng dự kiến{" "}
@@ -2692,28 +2692,42 @@ function PropertyRates({
       <div className="panel-heading">
         <div>
           <h2>Đơn giá dịch vụ · {property.name}</h2>
-          <p>Phí rác, wifi, máy giặt tính theo phòng/tháng.</p>
         </div>
       </div>
       {canWrite ? (
         <DataForm
           key={JSON.stringify(rates)}
-          schema={ratesSchema}
+          schema={ratesSchema
+            .omit({ trash: true, wifi: true })
+            .extend({ service: ratesSchema.shape.trash })}
           fields={rateFields}
           defaults={
             rates
-              ? { ...rates }
-              : { electricity: "", water: "", trash: "", wifi: "", laundry: "" }
+              ? {
+                  electricity: rates.electricity,
+                  water: rates.water,
+                  service: rates.trash + rates.wifi,
+                  laundry: rates.laundry,
+                }
+              : { electricity: "", water: "", service: "", laundry: "" }
           }
           submit="Lưu đơn giá"
-          onSubmit={onSave}
+          onSubmit={({ service, ...values }) =>
+            onSave({ ...values, trash: service, wifi: 0 })
+          }
         />
       ) : rates ? (
         <div className="detail-list rate-list">
           {rateFields.map((f) => (
             <div key={f.name}>
               <span>{f.label}</span>
-              <b>{money(Number(rates[f.name as keyof Rates]))}</b>
+              <b>
+                {money(
+                  f.name === "service"
+                    ? rates.trash + rates.wifi
+                    : Number(rates[f.name as keyof Rates]),
+                )}
+              </b>
             </div>
           ))}
         </div>

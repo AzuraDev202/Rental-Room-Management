@@ -368,12 +368,30 @@ const uid = "00000000-0000-0000-0000-000000000001",
     .getByRole("heading", { name: "Sửa phòng" })
     .waitFor({ state: "hidden" });
   console.log("Property and room saved");
+  await db.query(
+    `insert into property_service_rates(property_id,organization_id,electricity,water,trash,wifi,laundry) select id,organization_id,3500,20000,30000,70000,50000 from properties where name='Test Building'`,
+  );
+  await page.reload({ waitUntil: "networkidle" });
+
   await page.getByRole("button", { name: "Cài đặt", exact: true }).click();
+  assert.equal(
+    await page
+      .getByLabel("Dịch vụ (đ/phòng/tháng)", { exact: true })
+      .inputValue(),
+    "100000",
+  );
+  assert.equal(
+    await page.getByLabel("Rác (₫/phòng/tháng)", { exact: true }).count(),
+    0,
+  );
+  assert.equal(
+    await page.getByLabel("Wifi (₫/phòng/tháng)", { exact: true }).count(),
+    0,
+  );
   for (const [label, v] of [
     ["Điện (₫/kWh)", "3500"],
     ["Nước (₫/m³)", "20000"],
-    ["Rác (₫/phòng/tháng)", "30000"],
-    ["Wifi (₫/phòng/tháng)", "70000"],
+    ["Dịch vụ (đ/phòng/tháng)", "100000"],
     ["Máy giặt (₫/phòng/tháng)", "50000"],
   ])
     await page.getByLabel(label, { exact: true }).fill(v);
@@ -381,6 +399,13 @@ const uid = "00000000-0000-0000-0000-000000000001",
   await page
     .getByText("Đã lưu đơn giá cho Test Building", { exact: true })
     .waitFor();
+  const mergedRate = (
+    await db.query(
+      `select trash,wifi from property_service_rates r join properties p on p.id=r.property_id where p.name='Test Building'`,
+    )
+  ).rows[0];
+  assert.equal(Number(mergedRate.trash), 100000);
+  assert.equal(Number(mergedRate.wifi), 0);
   await page.getByRole("button", { name: "Cấp quyền", exact: true }).click();
   await page.getByLabel("Email", { exact: true }).fill("viewer@test.invalid");
   await page.getByRole("button", { name: "Lưu lời mời" }).click();
