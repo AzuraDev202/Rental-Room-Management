@@ -207,6 +207,10 @@ export default function Page() {
   return <Workspace key={session.user.id} session={session} />;
 }
 function Workspace({ session }: { session: Session }) {
+  const [newProperty, setNewProperty] = useState<Pick<
+    Property,
+    "id" | "name"
+  > | null>(null);
   const [memberships, setMemberships] = useState<Membership[]>([]),
     [orgNames, setOrgNames] = useState<Record<string, string>>({}),
     [org, setOrg] = useState(""),
@@ -337,11 +341,16 @@ function Workspace({ session }: { session: Session }) {
       await loadData(membership.organization_id, membership.role === "admin"),
     );
   };
-  const save = async (operation: () => Promise<unknown>, message: string) => {
+  const save = async (
+    operation: () => Promise<unknown>,
+    message: string,
+    onSaved?: () => void,
+  ) => {
     setBusy(true);
     try {
       await operation();
       setModal("");
+      onSaved?.();
       try {
         await refresh();
         notify(message);
@@ -1826,15 +1835,55 @@ function Workspace({ session }: { session: Session }) {
                   submit="Thêm căn hộ"
                   onSubmit={(v) =>
                     save(
-                      () =>
-                        rpc("create_property", {
+                      async () => {
+                        const id = await rpc("create_property", {
                           org,
                           property_name: v.name,
                           property_address: v.address,
                           rent: 0,
                           room_count: v.room_count,
-                        }),
+                        });
+                        setNewProperty({ id, name: String(v.name) });
+                      },
                       "Đã thêm căn hộ",
+                      () => setModal("property-rates"),
+                    )
+                  }
+                />
+              </>
+            )}
+            {modal === "property-rates" && newProperty && (
+              <>
+                <h2>Thiết lập đơn giá</h2>
+                <PropertyRates
+                  property={newProperty}
+                  rates={data.rates.find(
+                    (r) => r.property_id === newProperty.id,
+                  )}
+                  canWrite={canWrite}
+                  onSave={(values) =>
+                    save(
+                      async () => {
+                        const { error } = await supabase!
+                          .from("property_service_rates")
+                          .upsert(
+                            {
+                              ...values,
+                              property_id: newProperty.id,
+                              organization_id: org,
+                              updated_at: new Date().toISOString(),
+                            },
+                            { onConflict: "property_id" },
+                          );
+                        if (error) throw databaseError(error);
+                      },
+                      "Đã lưu đơn giá cho " + newProperty.name,
+                      () => {
+                        setPropertyId(newProperty.id);
+                        setRoomId("");
+                        navigate("property");
+                        setNewProperty(null);
+                      },
                     )
                   }
                 />
@@ -2809,7 +2858,7 @@ function PropertyRates({
   canWrite,
   onSave,
 }: {
-  property: Property;
+  property: Pick<Property, "id" | "name">;
   rates: Rates | undefined;
   canWrite: boolean;
   onSave: (v: Record<string, unknown>) => Promise<void>;

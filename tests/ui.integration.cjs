@@ -368,8 +368,26 @@ const uid = "00000000-0000-0000-0000-000000000001",
     .getByRole("heading", { name: "Thêm căn hộ" })
     .waitFor({ state: "hidden" });
   await page
-    .getByRole("button", { name: /Test Building Test Address/ })
-    .click();
+    .getByRole("heading", { name: "Thiết lập đơn giá", exact: true })
+    .waitFor();
+  for (const [label, value] of [
+    ["Điện (₫/kWh)", "3500"],
+    ["Nước (₫/m³)", "20000"],
+    ["Dịch vụ (đ/phòng/tháng)", "100000"],
+    ["Máy giặt (đ/người/tháng)", "50000"],
+  ])
+    await page.getByLabel(label, { exact: true }).fill(value);
+  await page.getByRole("button", { name: "Lưu đơn giá", exact: true }).click();
+  await page
+    .getByRole("heading", { name: "Thiết lập đơn giá", exact: true })
+    .waitFor({ state: "hidden" });
+  await page.getByRole("button", { name: "Thêm phòng", exact: true }).waitFor();
+  assert.equal(
+    (await db.query("select count(*) from property_service_rates")).rows[0]
+      .count,
+    1,
+  );
+
   await page
     .getByRole("button", { name: /Phòng 1 Chưa có người thuê/ })
     .click();
@@ -383,9 +401,6 @@ const uid = "00000000-0000-0000-0000-000000000001",
     .getByRole("heading", { name: "Sửa phòng" })
     .waitFor({ state: "hidden" });
   console.log("Property and room saved");
-  await db.query(
-    `insert into property_service_rates(property_id,organization_id,electricity,water,trash,wifi,laundry) select id,organization_id,3500,20000,30000,70000,50000 from properties where name='Test Building'`,
-  );
   await page.reload({ waitUntil: "networkidle" });
 
   await page.getByRole("button", { name: "Cài đặt", exact: true }).click();
@@ -780,6 +795,10 @@ const uid = "00000000-0000-0000-0000-000000000001",
     .getByRole("button", { name: "Thêm căn hộ", exact: true })
     .last()
     .click();
+  await page
+    .getByRole("heading", { name: "Thiết lập đơn giá", exact: true })
+    .waitFor();
+  await page.getByRole("button", { name: "Đóng", exact: true }).click();
   await page.getByRole("button", { name: /Delete UI Address/ }).click();
   await page.getByRole("button", { name: "Xóa căn hộ", exact: true }).click();
   await page.getByRole("button", { name: "Hủy", exact: true }).click();
