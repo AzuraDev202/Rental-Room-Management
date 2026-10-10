@@ -2507,3 +2507,72 @@ header {
 .bill output {
   font-weight: 650;
 }
+
+.rates-directory {
+  margin-bottom: 22px;
+}
+.rates-search {
+  padding: 0 24px 20px;
+}
+.rates-search label {
+  display: block;
+  margin-bottom: 8px;
+}
+.rates-search input {
+  width: 100%;
+  min-width: 0;
+}
+.rates-properties {
+  padding: 0 24px;
+}
+.rates-property {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 16px 0;
+  border-top: 1px solid #e3e8df;
+}
+.rates-property > div {
+  min-width: 0;
+}
+.rates-property h3,
+.rates-property p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.rates-property h3 {
+  font-size: 16px;
+}
+.rates-property p {
+  margin-top: 5px;
+  font-size: 14px;
+}
+.rates-property button {
+  flex-shrink: 0;
+}
+.rates-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 20px 24px;
+}
+@media (max-width: 480px) {
+  .rates-search,
+  .rates-properties {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+  .rates-property {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .rates-property button {
+    align-self: flex-end;
+  }
+  .rates-pagination {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+}

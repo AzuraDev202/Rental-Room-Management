@@ -1520,30 +1520,17 @@ function Workspace({ session }: { session: Session }) {
               {page === "settings" && (
                 <>
                   <AppInstall />
-                  {currentProperties.map((p) => (
-                    <PropertyRates
-                      key={p.id}
-                      property={p}
-                      rates={data.rates.find((r) => r.property_id === p.id)}
+                  {currentProperties.length > 0 && (
+                    <RatesDirectory
+                      key={org}
+                      properties={currentProperties}
                       canWrite={canWrite}
-                      onSave={(v) =>
-                        save(async () => {
-                          const { error } = await supabase!
-                            .from("property_service_rates")
-                            .upsert(
-                              {
-                                ...v,
-                                property_id: p.id,
-                                organization_id: org,
-                                updated_at: new Date().toISOString(),
-                              },
-                              { onConflict: "property_id" },
-                            );
-                          if (error) throw databaseError(error);
-                        }, "Đã lưu đơn giá cho " + p.name)
-                      }
+                      onOpen={(p) => {
+                        setNewProperty(p);
+                        setModal("edit-rates");
+                      }}
                     />
-                  ))}
+                  )}
                   <section className="panel team-panel">
                     <div className="panel-heading">
                       <div>
@@ -1852,43 +1839,52 @@ function Workspace({ session }: { session: Session }) {
                 />
               </>
             )}
-            {modal === "property-rates" && newProperty && (
-              <>
-                <h2>Thiết lập đơn giá</h2>
-                <PropertyRates
-                  property={newProperty}
-                  rates={data.rates.find(
-                    (r) => r.property_id === newProperty.id,
-                  )}
-                  canWrite={canWrite}
-                  onSave={(values) =>
-                    save(
-                      async () => {
-                        const { error } = await supabase!
-                          .from("property_service_rates")
-                          .upsert(
-                            {
-                              ...values,
-                              property_id: newProperty.id,
-                              organization_id: org,
-                              updated_at: new Date().toISOString(),
-                            },
-                            { onConflict: "property_id" },
-                          );
-                        if (error) throw databaseError(error);
-                      },
-                      "Đã lưu đơn giá cho " + newProperty.name,
-                      () => {
-                        setPropertyId(newProperty.id);
-                        setRoomId("");
-                        navigate("property");
-                        setNewProperty(null);
-                      },
-                    )
-                  }
-                />
-              </>
-            )}
+            {["property-rates", "edit-rates"].includes(modal) &&
+              newProperty && (
+                <>
+                  <h2>
+                    {modal === "property-rates"
+                      ? "Thiết lập đơn giá"
+                      : canWrite
+                        ? "Sửa đơn giá"
+                        : "Đơn giá dịch vụ"}
+                  </h2>
+                  <PropertyRates
+                    property={newProperty}
+                    rates={data.rates.find(
+                      (r) => r.property_id === newProperty.id,
+                    )}
+                    canWrite={canWrite}
+                    onSave={(values) =>
+                      save(
+                        async () => {
+                          const { error } = await supabase!
+                            .from("property_service_rates")
+                            .upsert(
+                              {
+                                ...values,
+                                property_id: newProperty.id,
+                                organization_id: org,
+                                updated_at: new Date().toISOString(),
+                              },
+                              { onConflict: "property_id" },
+                            );
+                          if (error) throw databaseError(error);
+                        },
+                        "Đã lưu đơn giá cho " + newProperty.name,
+                        () => {
+                          if (modal === "property-rates") {
+                            setPropertyId(newProperty.id);
+                            setRoomId("");
+                            navigate("property");
+                          }
+                          setNewProperty(null);
+                        },
+                      )
+                    }
+                  />
+                </>
+              )}
             {["room-add", "room-edit"].includes(modal) && (
               <>
                 <h2>{modal === "room-edit" ? "Sửa phòng" : "Thêm phòng"}</h2>
@@ -2850,6 +2846,91 @@ function exportInvoices(invoices: Invoice[], data: Data) {
   a.download = "HH-HOME-hoa-don.csv";
   a.click();
   URL.revokeObjectURL(url);
+}
+
+function RatesDirectory({
+  properties,
+  canWrite,
+  onOpen,
+}: {
+  properties: Property[];
+  canWrite: boolean;
+  onOpen: (property: Property) => void;
+}) {
+  const [query, setQuery] = useState("");
+  const [page, setPage] = useState(1);
+  const normalize = (value: string) =>
+    value
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/đ/gi, "d")
+      .toLowerCase();
+  const matches = properties.filter((p) =>
+    normalize(p.name + " " + p.address).includes(normalize(query.trim())),
+  );
+  const pages = Math.max(1, Math.ceil(matches.length / 10));
+  const currentPage = Math.min(page, pages);
+  return (
+    <section className="panel rates-directory" aria-label="Đơn giá dịch vụ">
+      <div className="panel-heading">
+        <h2>Đơn giá dịch vụ</h2>
+      </div>
+      <div className="rates-search">
+        <label htmlFor="rates-search">Tìm căn hộ</label>
+        <input
+          id="rates-search"
+          type="search"
+          placeholder="Tên hoặc địa chỉ căn hộ"
+          value={query}
+          onChange={(event) => {
+            setQuery(event.target.value);
+            setPage(1);
+          }}
+        />
+      </div>
+      <div className="rates-properties">
+        {matches.slice((currentPage - 1) * 10, currentPage * 10).map((p) => (
+          <div key={p.id} className="rates-property">
+            <div>
+              <h3>{p.name}</h3>
+              <p>{p.address}</p>
+            </div>
+            <button
+              className="secondary"
+              aria-label={
+                (canWrite ? "Sửa đơn giá · " : "Xem đơn giá · ") + p.name
+              }
+              onClick={() => onOpen(p)}
+            >
+              {canWrite ? "Sửa đơn giá" : "Xem đơn giá"}
+            </button>
+          </div>
+        ))}
+        {matches.length === 0 && <p role="status">Không tìm thấy căn hộ.</p>}
+      </div>
+      {pages > 1 && (
+        <nav className="rates-pagination" aria-label="Phân trang đơn giá">
+          <button
+            className="secondary"
+            disabled={currentPage === 1}
+            onClick={() => setPage(currentPage - 1)}
+          >
+            Trước
+          </button>
+          <span aria-live="polite">
+            Trang {currentPage}/{pages}
+          </span>
+          <button
+            className="secondary"
+            disabled={currentPage === pages}
+            onClick={() => setPage(currentPage + 1)}
+          >
+            Sau
+          </button>
+        </nav>
+      )}
+    </section>
+  );
 }
 
 function PropertyRates({

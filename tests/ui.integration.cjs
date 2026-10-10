@@ -405,6 +405,13 @@ const uid = "00000000-0000-0000-0000-000000000001",
 
   await page.getByRole("button", { name: "Cài đặt", exact: true }).click();
   assert.equal(
+    await page.getByLabel("Điện (₫/kWh)", { exact: true }).count(),
+    0,
+  );
+  await page
+    .getByRole("button", { name: "Sửa đơn giá · Test Building", exact: true })
+    .click();
+  assert.equal(
     await page
       .getByLabel("Dịch vụ (đ/phòng/tháng)", { exact: true })
       .inputValue(),
@@ -1399,6 +1406,9 @@ const uid = "00000000-0000-0000-0000-000000000001",
   assert.equal(Number(flatWater.water_fee), 100000);
   assert.equal(flatWater.water_count, 1);
   await page.getByRole("button", { name: "Cài đặt", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Sửa đơn giá · Water Building", exact: true })
+    .click();
   const waterSettings = page.getByRole("region", {
     name: "Đơn giá dịch vụ · Water Building",
     exact: true,
@@ -1434,6 +1444,60 @@ const uid = "00000000-0000-0000-0000-000000000001",
   await page.getByText("Đã lập hóa đơn", { exact: true }).waitFor();
   console.log(
     "PASS: water per-person hides arrival and bill water inputs, calculates flat water total, and switching back to m³ requires a fresh baseline",
+  );
+  for (let i = 1; i <= 12; i++) {
+    await db.query("select create_property($1,$2,$3,0,1)", [
+      archiveOrg,
+      "Directory " + String(i).padStart(2, "0"),
+      "Đường thử " + i,
+    ]);
+  }
+  await page.reload({ waitUntil: "networkidle" });
+  await page.getByRole("button", { name: "Cài đặt", exact: true }).click();
+  await page.getByLabel("Tìm căn hộ", { exact: true }).fill("Directory");
+  const directory = page.getByRole("region", {
+    name: "Đơn giá dịch vụ",
+    exact: true,
+  });
+  assert.equal(
+    await directory.getByRole("button", { name: /^Sửa đơn giá/ }).count(),
+    10,
+  );
+  await directory.getByRole("button", { name: "Sau", exact: true }).click();
+  assert.equal(
+    await directory.getByRole("button", { name: /^Sửa đơn giá/ }).count(),
+    2,
+  );
+  await directory.getByText("Trang 2/2", { exact: true }).waitFor();
+  await page.getByLabel("Tìm căn hộ", { exact: true }).fill("duong thu 12");
+  await directory
+    .getByRole("button", { name: "Sửa đơn giá · Directory 12", exact: true })
+    .waitFor();
+  assert.equal(
+    await directory.getByRole("button", { name: /^Sửa đơn giá/ }).count(),
+    1,
+  );
+  await page.setViewportSize({ width: 320, height: 568 });
+  await directory
+    .getByRole("button", { name: "Sửa đơn giá · Directory 12", exact: true })
+    .click();
+  await page
+    .getByRole("heading", { name: "Sửa đơn giá", exact: true })
+    .waitFor();
+  assert.equal(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth > window.innerWidth,
+    ),
+    false,
+  );
+  await page.getByRole("button", { name: "Đóng", exact: true }).click();
+  await page.getByLabel("Tìm căn hộ", { exact: true }).fill("not-a-property");
+  await directory
+    .getByText("Không tìm thấy căn hộ.", { exact: true })
+    .waitFor();
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  console.log(
+    "PASS: compact rates directory, ten items per page, accent-insensitive name/address search, empty results and edit popup at 320px",
   );
   await db.exec("reset role");
   await db.query(
