@@ -8,7 +8,6 @@ import {
 } from "../components/operations";
 import { ThemeSwitch } from "../components/theme";
 import { roomAlerts, billingToPrepare } from "../lib/operations";
-import { AppInstall } from "../components/app-install";
 import { useEffect, useState, useCallback } from "react";
 import type { Session } from "@supabase/supabase-js";
 import {
@@ -1624,7 +1623,6 @@ function Workspace({ session }: { session: Session }) {
               )}
               {page === "settings" && (
                 <>
-                  <AppInstall />
                   <ThemeSwitch />
                   {currentProperties.length > 0 && (
                     <RatesDirectory
