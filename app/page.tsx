@@ -633,13 +633,6 @@ function Workspace({ session }: { session: Session }) {
           <div className="help-card">
             <Shield size={20} />
             <b>{member ? roleNames[member.role] : "Đang tải quyền"}</b>
-            <p>
-              {canWrite
-                ? "Quản lý căn hộ và thu tiền."
-                : "Bạn có thể xem dữ liệu và hợp đồng."}
-              <br />
-              Dữ liệu được bảo vệ theo tài khoản.
-            </p>
           </div>
           <button className="profile" onClick={logout} disabled={busy}>
             <span className="avatar">
@@ -696,17 +689,8 @@ function Workspace({ session }: { session: Session }) {
                   ? `Xin chào, ${name.split(" ").slice(-1)[0]}`
                   : titles[page]}
               </h1>
-              <p>
-                {page === "dashboard"
-                  ? "Theo dõi hoạt động và doanh thu thực thu của các căn hộ."
-                  : page === "property"
-                    ? property?.address
-                    : page === "room"
-                      ? `${property?.name || ""} · Hồ sơ, hợp đồng và hóa đơn`
-                      : page === "settings"
-                        ? "Thiết lập đơn giá và quyền truy cập không gian quản lý."
-                        : "Quản lý thông tin và hoạt động của HH HOME."}
-              </p>
+              {page === "property" && <p>{property?.address}</p>}
+              {page === "room" && <p>{property?.name}</p>}
             </div>
             <div className="heading-actions">
               <label className="period">
@@ -837,7 +821,6 @@ function Workspace({ session }: { session: Session }) {
                       <div className="panel-heading">
                         <div>
                           <h2>Tình trạng phòng</h2>
-                          <p>Trạng thái người thuê hiện tại</p>
                         </div>
                         <DoorOpen size={19} />
                       </div>
@@ -877,7 +860,6 @@ function Workspace({ session }: { session: Session }) {
                           {currentProperties.length}
                         </span>
                       </h2>
-                      <p>Mỗi căn hộ, một mái nhà được chăm sóc.</p>
                     </div>
                     {page === "dashboard" ? (
                       <button
@@ -1044,7 +1026,6 @@ function Workspace({ session }: { session: Session }) {
                   <div className="section-heading">
                     <div>
                       <h2>Danh sách phòng</h2>
-                      <p>Đặt tên và giá thuê riêng cho từng phòng.</p>
                     </div>
                     {canWrite && (
                       <button
@@ -1255,10 +1236,6 @@ function Workspace({ session }: { session: Session }) {
                       <div className="panel-heading">
                         <div>
                           <h2>Mốc điện / nước lúc nhận phòng</h2>
-                          <p>
-                            Mỗi lần phòng trống bắt đầu có người ở là một đợt
-                            thuê mới.
-                          </p>
                         </div>
                       </div>
                       {data.billingCycles
@@ -1297,7 +1274,6 @@ function Workspace({ session }: { session: Session }) {
                     <div className="panel-heading">
                       <div>
                         <h2>Lập hóa đơn</h2>
-                        <p>Đơn giá được chốt theo thời điểm lập.</p>
                       </div>
                       <ReceiptText size={19} />
                     </div>
@@ -1444,10 +1420,6 @@ function Workspace({ session }: { session: Session }) {
                     <div className="panel-heading">
                       <div>
                         <h2>Hóa đơn kỳ {period}</h2>
-                        <p>
-                          Tiền thực thu được thống kê theo ngày ghi nhận thanh
-                          toán.
-                        </p>
                       </div>
                       <button
                         className="secondary"
@@ -1901,7 +1873,7 @@ function Workspace({ session }: { session: Session }) {
             {modal === "tenant-detail" && tenant && (
               <>
                 <h2>{tenant.full_name}</h2>
-                <p>Thông tin người thuê</p>
+
                 <div className="detail-list">
                   {[
                     ["Giới tính", tenant.gender],
@@ -2174,7 +2146,7 @@ function Workspace({ session }: { session: Session }) {
             {modal === "invoice-detail" && invoice && (
               <>
                 <h2>Hóa đơn · {invoice.period.slice(0, 7)}</h2>
-                <p>Đơn giá đã lưu tại thời điểm lập hóa đơn.</p>
+
                 {invoice.billing_cycle_id && (
                   <p className="form-hint">
                     Đợt thuê nhận phòng{" "}
@@ -2543,13 +2515,10 @@ function InvoiceForm({
           <b>{preview === null ? "Nhập chỉ số" : money(preview)}</b>
         </div>
         <p className="form-hint">
-          Hóa đơn đầu tiên lấy chỉ số lúc nhận phòng; kỳ sau lấy số cuối kỳ
-          trước của cùng đợt thuê. Chọn tháng trên thanh Kỳ xem. Tổng cuối cùng
-          do máy chủ tính và lưu.
+          Chỉ số cũ lấy từ mốc nhận phòng hoặc hóa đơn trước của cùng đợt thuê.
         </p>
         <p className="form-hint">
-          Tiền phòng và phí cố định theo mức tháng đã cấu hình cho hóa đơn này,
-          chưa tự phân bổ theo ngày ở.
+          Tiền phòng và phí cố định tính theo tháng, không tự chia theo ngày ở.
         </p>
       </DataForm>
     </div>
@@ -2716,10 +2685,7 @@ function PropertyRates({
       <div className="panel-heading">
         <div>
           <h2>Đơn giá dịch vụ · {property.name}</h2>
-          <p>
-            {property.address} · Phí rác, wifi, máy giặt tính theo phòng/tháng.
-            Hóa đơn cũ giữ nguyên đơn giá.
-          </p>
+          <p>Phí rác, wifi, máy giặt tính theo phòng/tháng.</p>
         </div>
       </div>
       {canWrite ? (

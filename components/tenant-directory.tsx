@@ -66,7 +66,6 @@ export function TenantDirectory({
           <h2>
             Danh sách người thuê <span className="badge">{count}</span>
           </h2>
-          <p>Phân nhóm theo căn hộ và phòng · {status}</p>
         </div>
         {canWrite && (
           <button
