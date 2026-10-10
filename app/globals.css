@@ -2487,3 +2487,23 @@ header {
     grid-template-columns: 1fr;
   }
 }
+
+.invoice-formula {
+  padding: 16px;
+  margin: 20px 0;
+  background: #f4f7f2;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  line-height: 1.8;
+  overflow-wrap: anywhere;
+}
+.invoice-formula h3 {
+  margin: 0 0 10px;
+  font-size: 14px;
+}
+.invoice-formula p + p {
+  margin-top: 10px;
+}
+.bill output {
+  font-weight: 650;
+}

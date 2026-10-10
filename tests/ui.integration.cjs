@@ -569,24 +569,29 @@ const uid = "00000000-0000-0000-0000-000000000001",
   console.log("Tenant status filters and property/room grouping passed");
 
   assert.equal(
-    await page.getByLabel("Điện · chỉ số cũ", { exact: true }).inputValue(),
+    await page.getByLabel("Điện · chỉ số cũ", { exact: true }).textContent(),
     "1240",
   );
   assert.equal(
-    await page.getByLabel("Nước · chỉ số cũ", { exact: true }).inputValue(),
+    await page.getByLabel("Nước · chỉ số cũ", { exact: true }).textContent(),
     "86",
   );
-  assert.equal(
-    await page
-      .getByLabel("Điện · chỉ số cũ", { exact: true })
-      .getAttribute("readonly"),
-    "",
-  );
+  assert.equal(await page.locator(".bill form input").count(), 2);
   for (const [label, v] of [
     ["Điện · chỉ số mới (3.500 ₫/kWh)", "1325"],
     ["Nước · chỉ số mới (20.000 ₫/m³)", "92"],
   ])
     await page.getByLabel(label, { exact: true }).fill(v);
+  await page.getByText("Tổng tiền phòng phải đóng", { exact: false }).waitFor();
+  await page
+    .locator(".invoice-formula")
+    .getByText("Điện: (1325 − 1240)", { exact: false })
+    .waitFor();
+  assert.ok(
+    (await page.locator(".invoice-formula").textContent()).includes(
+      "Tổng tiền =",
+    ),
+  );
   await page.getByRole("button", { name: "Lập hóa đơn", exact: true }).click();
   await page.getByText("Đã lập hóa đơn", { exact: true }).waitFor();
   await page.getByRole("button", { name: "Người thuê", exact: true }).click();
@@ -1223,11 +1228,11 @@ const uid = "00000000-0000-0000-0000-000000000001",
   ).rows[0];
   assert.notEqual(newArrival.billing_cycle_id, firstArrival.billing_cycle_id);
   assert.equal(
-    await page.getByLabel("Điện · chỉ số cũ", { exact: true }).inputValue(),
+    await page.getByLabel("Điện · chỉ số cũ", { exact: true }).textContent(),
     "20",
   );
   assert.equal(
-    await page.getByLabel("Nước · chỉ số cũ", { exact: true }).inputValue(),
+    await page.getByLabel("Nước · chỉ số cũ", { exact: true }).textContent(),
     "2",
   );
   // Settle the old cycle, then the new cycle in the same calendar month.
@@ -1235,7 +1240,7 @@ const uid = "00000000-0000-0000-0000-000000000001",
     .getByLabel("Đợt thuê lập hóa đơn")
     .selectOption(firstArrival.billing_cycle_id);
   assert.equal(
-    await page.getByLabel("Điện · chỉ số cũ", { exact: true }).inputValue(),
+    await page.getByLabel("Điện · chỉ số cũ", { exact: true }).textContent(),
     "10",
   );
   await page
@@ -1246,13 +1251,15 @@ const uid = "00000000-0000-0000-0000-000000000001",
     .fill("2");
   await page.getByRole("button", { name: "Lập hóa đơn", exact: true }).click();
   await page.waitForFunction(
-    () => document.querySelector("input[name=electricity_old]")?.value === "20",
+    () =>
+      document.querySelector('output[aria-label="Điện · chỉ số cũ"]')
+        ?.textContent === "20",
   );
   await page
     .getByLabel("Đợt thuê lập hóa đơn")
     .selectOption(newArrival.billing_cycle_id);
   assert.equal(
-    await page.getByLabel("Điện · chỉ số cũ", { exact: true }).inputValue(),
+    await page.getByLabel("Điện · chỉ số cũ", { exact: true }).textContent(),
     "20",
   );
   await page

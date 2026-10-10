@@ -2433,109 +2433,142 @@ function InvoiceForm({
   rates: Rates;
   onSubmit: (v: Record<string, unknown>) => Promise<void>;
 }) {
-  const fields: Field[] = [
-    { name: "period", label: "Kỳ hóa đơn", type: "month", readOnly: true },
-    { name: "due_date", label: "Hạn thanh toán", type: "date" },
-    {
-      name: "electricity_old",
-      label: "Điện · chỉ số cũ",
-      type: "number",
-      min: 0,
-      readOnly: true,
-    },
-    {
-      name: "electricity_new",
-      label: `Điện · chỉ số mới (${money(rates.electricity)}/kWh)`,
-      type: "number",
-      min: previous?.electricity_new ?? baseline.electricity_initial ?? 0,
-    },
-    {
-      name: "water_old",
-      label: "Nước · chỉ số cũ",
-      type: "number",
-      min: 0,
-      readOnly: true,
-    },
-    {
-      name: "water_new",
-      label: `Nước · chỉ số mới (${money(rates.water)}/m³)`,
-      type: "number",
-      min: previous?.water_new ?? baseline.water_initial ?? 0,
-    },
-  ];
+  const eOld = previous?.electricity_new ?? baseline.electricity_initial ?? 0;
+  const wOld = previous?.water_new ?? baseline.water_initial ?? 0;
+  const deadline = nextMonth(period).slice(0, 7) + "-05";
+  const [readings, setReadings] = useState<{
+    electricity: number;
+    water: number;
+  } | null>(null);
   const [preview, setPreview] = useState<number | null>(null);
   return (
     <div
-      onInput={(e) => {
-        const form = (e.target as HTMLElement).closest("form");
+      onInput={(event) => {
+        const form = (event.target as HTMLElement).closest("form");
         if (!form) return;
-        const fd = new FormData(form);
+        const values = new FormData(form);
+        const e = values.get("electricity_new"),
+          w = values.get("water_new");
         try {
-          const vals = [
-            "electricity_old",
-            "electricity_new",
-            "water_old",
-            "water_new",
-          ].map((k) => {
-            const v = fd.get(k);
-            if (v === null || v === "") throw new Error();
-            return Number(v);
-          });
-          setPreview(
-            calculateBill(
-              room.monthly_rent,
-              rates,
-              vals[0],
-              vals[1],
-              vals[2],
-              vals[3],
-              laundryPeople,
-            ),
+          if (e === null || e === "" || w === null || w === "")
+            throw new Error();
+          const electricity = Number(e),
+            water = Number(w);
+          const total = calculateBill(
+            room.monthly_rent,
+            rates,
+            eOld,
+            electricity,
+            wOld,
+            water,
+            laundryPeople,
           );
+          setReadings({ electricity, water });
+          setPreview(total);
         } catch {
+          setReadings(null);
           setPreview(null);
         }
       }}
     >
       <DataForm
         schema={invoiceSchema}
-        fields={fields}
+        fields={[
+          {
+            name: "electricity_new",
+            label: `Điện · chỉ số mới (${money(rates.electricity)}/kWh)`,
+            type: "number",
+            min: eOld,
+          },
+          {
+            name: "water_new",
+            label: `Nước · chỉ số mới (${money(rates.water)}/m³)`,
+            type: "number",
+            min: wOld,
+          },
+        ]}
         defaults={{
           period,
-          due_date: period + "-05",
-          electricity_old:
-            previous?.electricity_new ?? baseline.electricity_initial ?? "",
+          due_date: deadline,
+          electricity_old: eOld,
+          water_old: wOld,
           electricity_new: "",
-          water_old: previous?.water_new ?? baseline.water_initial ?? "",
           water_new: "",
         }}
         submit="Lập hóa đơn"
-        onSubmit={onSubmit}
+        onSubmit={(values) =>
+          onSubmit({
+            ...values,
+            period,
+            due_date: deadline,
+            electricity_old: eOld,
+            water_old: wOld,
+          })
+        }
       >
         <div className="bill-line">
-          Tiền phòng <b>{money(room.monthly_rent)}</b>
+          Điện · chỉ số cũ <output aria-label="Điện · chỉ số cũ">{eOld}</output>
         </div>
         <div className="bill-line">
-          Dịch vụ <b>{money(rates.trash + rates.wifi)}</b>
+          Nước · chỉ số cũ <output aria-label="Nước · chỉ số cũ">{wOld}</output>
         </div>
-        <div className="bill-line">
-          Máy giặt · {laundryPeople} người × {money(rates.laundry)}
-          <b>{money(rates.laundry * laundryPeople)}</b>
+        <div className="invoice-formula" aria-label="Công thức tính hóa đơn">
+          <h3>Công thức tính</h3>
+          <p>
+            Tổng tiền = (Số điện mới − Số điện cũ) × Đơn giá điện + (Số nước mới
+            − Số nước cũ) × Đơn giá nước + Tiền phòng + Dịch vụ + Số người × Đơn
+            giá máy giặt.
+          </p>
+          {readings && (
+            <>
+              <p>
+                Điện: ({readings.electricity} − {eOld}) ×{" "}
+                {money(rates.electricity)} ={" "}
+                <b>
+                  {money((readings.electricity - eOld) * rates.electricity)}
+                </b>
+              </p>
+              <p>
+                Nước: ({readings.water} − {wOld}) × {money(rates.water)} ={" "}
+                <b>{money((readings.water - wOld) * rates.water)}</b>
+              </p>
+            </>
+          )}
+          <p>
+            Tiền phòng: <b>{money(room.monthly_rent)}</b>
+          </p>
+          <p>
+            Dịch vụ: <b>{money(rates.trash + rates.wifi)}</b>/phòng/tháng
+          </p>
+          <p>
+            Máy giặt: {laundryPeople} người × {money(rates.laundry)}/người/tháng
+            = <b>{money(rates.laundry * laundryPeople)}</b>
+          </p>
+          {readings && (
+            <p>
+              Tổng tiền ={" "}
+              {money((readings.electricity - eOld) * rates.electricity)} +{" "}
+              {money((readings.water - wOld) * rates.water)} +{" "}
+              {money(room.monthly_rent)} + {money(rates.trash + rates.wifi)} +{" "}
+              {money(rates.laundry * laundryPeople)} = <b>{money(preview!)}</b>
+            </p>
+          )}
         </div>
-        <div className="bill-total">
-          Tổng dự kiến{" "}
-          <b>{preview === null ? "Nhập chỉ số" : money(preview)}</b>
+        <div className="bill-total" aria-live="polite">
+          Tổng tiền phòng phải đóng{" "}
+          <b>
+            {preview === null ? "Nhập chỉ số điện và nước" : money(preview)}
+          </b>
         </div>
         <p className="form-hint">
-          Chỉ số cũ lấy từ mốc nhận phòng hoặc hóa đơn trước của cùng đợt thuê.
-        </p>
-        <p className="form-hint">
-          Tiền phòng và phí cố định tính theo tháng, không tự chia theo ngày ở.
+          Kỳ {period} · Hạn thanh toán tự đặt: {deadline}. Tiền phòng và phí
+          tháng không tự chia theo ngày ở.
         </p>
       </DataForm>
     </div>
   );
 }
+
 function ContractUpload({
   org,
   room,

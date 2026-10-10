@@ -124,3 +124,5 @@ Chạy nội dung `supabase/migrations/202610080007_remove_workspace_member.sql`
 Máy giặt: **đ/người/tháng**. Chạy migration `202610080008_laundry_per_person.sql` sau 007. Hóa đơn mới tính đơn giá × số người thuộc đợt thuê có thời gian ở giao tháng (đã đến ngày vào ở, loại lịch hủy), không chia ngày. Chốt số người và đơn giá cùng hóa đơn; hóa đơn cũ giữ nguyên tiền, không suy đoán số người lịch sử.
 
 Thêm căn hộ chỉ nhập tên, địa chỉ và số phòng; không nhập/hiển thị giá thuê nguyên căn. Giá thuê riêng từng phòng vẫn dùng lập hóa đơn. Hồ sơ căn hộ cũ giữ nguyên dữ liệu lưu trữ; căn hộ mới dùng giá nguyên căn 0 để tương thích database, không cần SQL mới.
+
+Lập hóa đơn chỉ nhập chỉ số điện/nước mới; mốc cũ, đơn giá và số người lấy từ dữ liệu đã lưu. Hiển thị công thức tổng và từng phép tính bằng số; tổng tiền cập nhật khi cả hai chỉ số hợp lệ. Kỳ chọn ở Kỳ xem; hạn thanh toán tự đặt ngày 05 tháng kế tiếp. Không cần migration mới.
