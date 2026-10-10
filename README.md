@@ -5,7 +5,7 @@
 ## 1. Tạo và cấu hình Supabase
 
 1. Tạo dự án tại https://supabase.com/dashboard. Chọn vùng gần Việt Nam và lưu mật khẩu database trong trình quản lý mật khẩu.
-2. Mở **SQL Editor**, chạy lần lượt `supabase/migrations/202610080001_hh_home.sql` rồi `supabase/migrations/202610080002_property_service_rates.sql` rồi `supabase/migrations/202610080003_delete_property.sql` và `supabase/migrations/202610080004_tenant_document_history.sql` và `supabase/migrations/202610080005_delete_vacant_property.sql` rồi `supabase/migrations/202610080006_room_move_in_readings.sql` rồi `supabase/migrations/202610080007_remove_workspace_member.sql` rồi `supabase/migrations/202610080008_laundry_per_person.sql`, mỗi file một lần trên dự án mới. Migration tạo bảng, RPC, RLS và bucket `contracts` riêng tư; không tạo dữ liệu căn hộ/người thuê/hóa đơn.
+2. Mở **SQL Editor**, chạy lần lượt `supabase/migrations/202610080001_hh_home.sql` rồi `supabase/migrations/202610080002_property_service_rates.sql` rồi `supabase/migrations/202610080003_delete_property.sql` và `supabase/migrations/202610080004_tenant_document_history.sql` và `supabase/migrations/202610080005_delete_vacant_property.sql` rồi `supabase/migrations/202610080006_room_move_in_readings.sql` rồi `supabase/migrations/202610080007_remove_workspace_member.sql` rồi `supabase/migrations/202610080008_laundry_per_person.sql` rồi `supabase/migrations/202610080009_water_billing_modes.sql`, mỗi file một lần trên dự án mới. Migration tạo bảng, RPC, RLS và bucket `contracts` riêng tư; không tạo dữ liệu căn hộ/người thuê/hóa đơn.
 3. Trong **Authentication → Providers → Email**, bật đăng ký email/password và **Confirm email**. Thiết lập mật khẩu tối thiểu 8 ký tự. Với môi trường production, cấu hình SMTP để gửi email xác nhận và đặt lại mật khẩu ổn định.
 4. Trong **Authentication → URL Configuration**, đặt Site URL theo domain triển khai và thêm redirect URL cho domain đó. Khi chạy local, thêm `http://localhost:3000` và `http://localhost:3000/**`. Production dùng domain HTTPS cụ thể, không dùng wildcard rộng.
 5. Lấy Project URL và **publishable key hoặc anon key** từ Project Settings → API. Chỉ hai giá trị công khai này được dùng trong frontend. Không dùng `service_role` hoặc secret key.
@@ -42,7 +42,7 @@ npm start
 1. Đăng ký, xác nhận email, đăng nhập.
 2. Tạo không gian quản lý đầu tiên; người tạo nhận quyền **Quản trị viên**. Nếu được cấp quyền vào không gian có sẵn, chọn **Nhận lời mời** thay vì tạo không gian mới.
 3. Vào **Căn hộ → Thêm căn hộ**, nhập tên, địa chỉ và số phòng. Phòng được tạo trong cùng giao dịch và có giá thuê ban đầu 0; mở từng phòng để đặt tên và giá thuê thực tế.
-4. Vào **Cài đặt** để nhập đơn giá điện/nước và phí rác, wifi, máy giặt **riêng cho từng căn hộ**. Phần đơn giá không hiển thị khi chưa có căn hộ. Các phí này hiện tính theo phòng/tháng. Căn hộ mới chưa có đơn giá cho đến khi được lưu; cần thiết lập trước khi lập hóa đơn.
+4. Vào **Cài đặt** để nhập đơn giá điện/nước, phí dịch vụ và máy giặt **riêng cho từng căn hộ**. Phần đơn giá không hiển thị khi chưa có căn hộ. Phí dịch vụ tính theo phòng/tháng; máy giặt tính theo người/tháng. Nước có thể chọn theo m³ hoặc theo người/tháng. Căn hộ mới chưa có đơn giá cho đến khi được lưu; cần thiết lập trước khi lập hóa đơn.
 5. Thêm người thuê; khai báo họ tên, giới tính, ngày sinh, CCCD, điện thoại, email (tùy chọn), ngày vào ở. Sửa hồ sơ hoặc ghi nhận chuyển đi; giữ lại hồ sơ đã chuyển đi. Trang Người thuê mặc định chỉ hiển thị Đang ở, phân nhóm căn hộ → phòng; có bộ lọc Sắp vào ở/Đã chuyển đi/Tất cả, căn hộ, phòng và tìm kiếm theo tên/điện thoại/phòng/căn hộ.
 6. Tải hợp đồng PDF/JPG/PNG tối đa 10 MB, nhập ngày hiệu lực. Tệp thuộc đúng không gian và phòng; nút Xem tạo URL ký có hiệu lực 60 giây, không phải liên kết công khai.
 7. Mở phòng để lập hóa đơn. Lần đầu lấy mốc điện/nước lúc phòng trống nhận người mới; kỳ tiếp theo lấy chỉ số mới của hóa đơn gần nhất trong cùng đợt thuê. Hóa đơn chỉ lập theo thứ tự kỳ, không trùng kỳ trong một đợt thuê và không lập cho tháng tương lai. Máy chủ chốt giá phòng, đơn giá, phí và tính tổng; lịch sử không đổi khi chỉnh đơn giá.
@@ -98,7 +98,7 @@ Migration tự liên kết tài liệu hiện có dựa trên phòng, thời gia
 Chạy **nội dung** [202610080006_room_move_in_readings.sql](supabase/migrations/202610080006_room_move_in_readings.sql) một lần sau migration 005, rồi cập nhật ứng dụng.
 
 - Trạng thái **Trống / Đang ở** tự tính từ ngày vào ở/chuyển đi của người thuê, theo ngày Việt Nam. Không cần bật/tắt thủ công.
-- Khi thêm người vào phòng trống, phải nhập chỉ số điện/nước tại ngày nhận phòng. Phòng bắt đầu đợt thuê mới; ghi vào lịch sử **Mốc điện / nước lúc nhận phòng**.
+- Khi thêm người vào phòng trống, phải nhập chỉ số điện tại ngày nhận phòng; chỉ nhập thêm chỉ số nước nếu chọn cách tính theo m³. Phòng bắt đầu đợt thuê mới; ghi vào lịch sử **Mốc điện / nước lúc nhận phòng**.
 - Nếu phòng còn người ở, thêm người mới tiếp tục đợt thuê và mốc hiện tại, không yêu cầu nhập lại.
 - Khi lập hóa đơn, chọn tháng ở **Kỳ xem** và chọn **Đợt thuê** nếu cần. Chỉ số cũ khóa theo mốc nhận phòng cho kỳ đầu, rồi theo số cuối hóa đơn trước của cùng đợt. Hai đợt thuê trong cùng tháng có hóa đơn riêng; chứng từ chỉ liên kết người của đợt tương ứng.
 - Phòng trống giữa hai đợt: số điện/nước lúc người mới nhận phòng là mốc mới, không lấy số cuối hóa đơn người cũ để tính phần tiêu thụ trong thời gian phòng trống. Tiền phòng/phí cố định vẫn theo cấu hình tháng hiện tại của mỗi hóa đơn; chưa tự chia theo số ngày ở.
@@ -125,4 +125,8 @@ Máy giặt: **đ/người/tháng**. Chạy migration `202610080008_laundry_per_
 
 Thêm căn hộ chỉ nhập tên, địa chỉ và số phòng; không nhập/hiển thị giá thuê nguyên căn. Giá thuê riêng từng phòng vẫn dùng lập hóa đơn. Hồ sơ căn hộ cũ giữ nguyên dữ liệu lưu trữ; căn hộ mới dùng giá nguyên căn 0 để tương thích database, không cần SQL mới.
 
-Lập hóa đơn chỉ nhập chỉ số điện/nước mới; mốc cũ, đơn giá và số người lấy từ dữ liệu đã lưu. Hiển thị công thức tổng và từng phép tính bằng số; tổng tiền cập nhật khi cả hai chỉ số hợp lệ. Kỳ chọn ở Kỳ xem; hạn thanh toán tự đặt ngày 05 tháng kế tiếp. Không cần migration mới.
+Lập hóa đơn chỉ nhập chỉ số điện/nước mới; mốc cũ, đơn giá và số người lấy từ dữ liệu đã lưu. Hiển thị công thức tổng và từng phép tính bằng số; tổng tiền cập nhật khi các chỉ số cần nhập hợp lệ. Kỳ chọn ở Kỳ xem; hạn thanh toán tự đặt ngày 05 tháng kế tiếp. Không cần migration mới.
+
+## Cách tính nước
+
+Chạy nội dung migration 009 sau 008. Cài đặt đơn giá → Cách tính nước: Theo m³ hoặc Theo người/tháng. Chế độ theo người bỏ chỉ số nước tại nhận phòng và lập hóa đơn, tiền nước = số người trong đợt thuê của kỳ × đơn giá; chốt số người, đơn giá, cách tính cùng hóa đơn. Không chia theo ngày; lịch chưa tới hoặc lịch hủy không tính. Đổi về m³ sau khi dùng chế độ theo người cần ghi mốc nước mới trước kỳ tiếp theo, không tính tiêu thụ của thời gian đã thu theo người. Hóa đơn cũ, thanh toán và công nợ giữ nguyên.

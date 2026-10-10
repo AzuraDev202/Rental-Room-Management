@@ -62,6 +62,12 @@ const uid = "00000000-0000-0000-0000-000000000001",
       "utf8",
     ),
   );
+  await db.exec(
+    fs.readFileSync(
+      root + "/supabase/migrations/202610080009_water_billing_modes.sql",
+      "utf8",
+    ),
+  );
   const browser = await chromium.launch({
     headless: true,
     ...(process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH
@@ -1298,6 +1304,118 @@ const uid = "00000000-0000-0000-0000-000000000001",
     ])
   ).rows;
   assert.equal(periodBills.length, 2);
+  const waterProperty = (
+    await db.query(
+      `select create_property($1,'Water Building','Water Address',0,1) as id`,
+      [archiveOrg],
+    )
+  ).rows[0].id;
+  await db.query(
+    `insert into property_service_rates(property_id,organization_id,electricity,water,water_mode,trash,wifi,laundry) values($1,$2,1000,100000,'person',0,0,0)`,
+    [waterProperty, archiveOrg],
+  );
+  const waterRoom = (
+    await db.query(`select id from rooms where property_id=$1`, [waterProperty])
+  ).rows[0].id;
+  await page.reload({ waitUntil: "networkidle" });
+  const openWaterRoom = async () => {
+    await page.getByRole("button", { name: /^Căn hộ/ }).click();
+    await page
+      .getByRole("button", { name: /Water Building Water Address/ })
+      .click();
+    await page
+      .getByRole("button", {
+        name: /Phòng 1 (Chưa có người thuê|[0-9]+ người đang ở)/,
+      })
+      .click();
+  };
+  await openWaterRoom();
+  await page
+    .getByRole("button", { name: "Thêm người thuê", exact: true })
+    .click();
+  assert.equal(
+    await page
+      .getByLabel("Nước · chỉ số lúc nhận phòng", { exact: true })
+      .count(),
+    0,
+  );
+  for (const [label, value] of [
+    ["Họ tên", "Water Tenant"],
+    ["Ngày sinh", "1990-01-01"],
+    ["Số CCCD (12 chữ số)", "823456789001"],
+    ["Số điện thoại", "0901234567"],
+    ["Ngày vào ở", "2020-01-01"],
+    ["Điện · chỉ số lúc nhận phòng", "100"],
+  ])
+    await page.getByLabel(label, { exact: true }).fill(value);
+  await page.getByLabel("Giới tính", { exact: true }).selectOption("Nam");
+  await page
+    .getByRole("button", { name: "Lưu người thuê", exact: true })
+    .click();
+  await page.getByText("Đã lưu hồ sơ người thuê", { exact: true }).waitFor();
+  await page.getByLabel("Kỳ xem", { exact: true }).fill("2020-01");
+  assert.equal(
+    await page.locator('.bill form input[name="water_new"]').count(),
+    0,
+  );
+  assert.equal(await page.locator(".bill form input").count(), 1);
+  await page
+    .getByLabel("Điện · chỉ số mới (1.000 ₫/kWh)", { exact: true })
+    .fill("110");
+  await page
+    .locator(".bill-total")
+    .getByText("110.000 ₫", { exact: true })
+    .waitFor();
+  assert.ok(
+    (await page.locator(".invoice-formula").textContent()).includes(
+      "Số người × Đơn giá nước/người/tháng",
+    ),
+  );
+  await page.getByRole("button", { name: "Lập hóa đơn", exact: true }).click();
+  await page.getByText("Đã lập hóa đơn", { exact: true }).waitFor();
+  const flatWater = (
+    await db.query(`select * from invoices where room_id=$1`, [waterRoom])
+  ).rows[0];
+  assert.equal(flatWater.water_mode, "person");
+  assert.equal(Number(flatWater.water_fee), 100000);
+  assert.equal(flatWater.water_count, 1);
+  await page.getByRole("button", { name: "Cài đặt", exact: true }).click();
+  const waterSettings = page.getByRole("region", {
+    name: "Đơn giá dịch vụ · Water Building",
+    exact: true,
+  });
+  await waterSettings
+    .getByLabel("Cách tính nước", { exact: true })
+    .selectOption("meter");
+  await waterSettings.getByLabel("Nước (₫/m³)", { exact: true }).fill("5000");
+  await waterSettings
+    .getByRole("button", { name: "Lưu đơn giá", exact: true })
+    .click();
+  await page
+    .getByText("Đã lưu đơn giá cho Water Building", { exact: true })
+    .waitFor();
+  await openWaterRoom();
+  await page.getByLabel("Kỳ xem", { exact: true }).fill("2020-02");
+  await page
+    .getByLabel("Nước · mốc khi chuyển sang m³", { exact: true })
+    .fill("50");
+  await page.getByRole("button", { name: "Lưu mốc nước", exact: true }).click();
+  await page.getByText("Đã lưu mốc nước", { exact: true }).waitFor();
+  await page
+    .getByLabel("Điện · chỉ số mới (1.000 ₫/kWh)", { exact: true })
+    .fill("120");
+  await page
+    .getByLabel("Nước · chỉ số mới (5.000 ₫/m³)", { exact: true })
+    .fill("52");
+  await page
+    .locator(".bill-total")
+    .getByText("20.000 ₫", { exact: true })
+    .waitFor();
+  await page.getByRole("button", { name: "Lập hóa đơn", exact: true }).click();
+  await page.getByText("Đã lập hóa đơn", { exact: true }).waitFor();
+  console.log(
+    "PASS: water per-person hides arrival and bill water inputs, calculates flat water total, and switching back to m³ requires a fresh baseline",
+  );
   await db.exec("reset role");
   await db.query(
     `insert into memberships(organization_id,user_id,role,display_name,email) values($1,$2,'viewer','Delete Test','viewer@test.invalid') on conflict(organization_id,user_id) do update set display_name='Delete Test'`,

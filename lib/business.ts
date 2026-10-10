@@ -48,7 +48,8 @@ export function calculateBill(
   const total =
     rent +
     (eNew - eOld) * rates.electricity +
-    (wNew - wOld) * rates.water +
+    (rates.water_mode === "person" ? laundryPeople : wNew - wOld) *
+      rates.water +
     rates.trash +
     rates.wifi +
     rates.laundry * laundryPeople;

@@ -91,6 +91,14 @@ const roleNames: Record<Role, string> = {
 };
 const rateFields: Field[] = [
   { name: "electricity", label: "Điện (₫/kWh)", type: "number", min: 0 },
+  {
+    name: "water_mode",
+    label: "Cách tính nước",
+    options: [
+      { value: "meter", label: "Theo m³" },
+      { value: "person", label: "Theo người/tháng" },
+    ],
+  },
   { name: "water", label: "Nước (₫/m³)", type: "number", min: 0 },
   { name: "service", label: "Dịch vụ (đ/phòng/tháng)", type: "number", min: 0 },
   {
@@ -1246,9 +1254,11 @@ function Workspace({ session }: { session: Session }) {
                                 ? "Chưa ghi"
                                 : c.electricity_initial + " kWh"}{" "}
                               · Nước:{" "}
-                              {c.water_initial === null
-                                ? "Chưa ghi"
-                                : c.water_initial + " m³"}
+                              {c.water_meter_ready === false
+                                ? "Không dùng chỉ số"
+                                : c.water_initial === null
+                                  ? "Chưa ghi"
+                                  : c.water_initial + " m³"}
                             </span>
                           </div>
                         ))}
@@ -1285,7 +1295,13 @@ function Workspace({ session }: { session: Session }) {
                         <>
                           <h3>Ghi chỉ số nhận phòng còn thiếu</h3>
                           <DataForm
-                            schema={initialReadingsSchema}
+                            schema={
+                              roomRates?.water_mode === "person"
+                                ? initialReadingsSchema.omit({
+                                    water_initial: true,
+                                  })
+                                : initialReadingsSchema
+                            }
                             fields={[
                               {
                                 name: "electricity_initial",
@@ -1299,7 +1315,11 @@ function Workspace({ session }: { session: Session }) {
                                 type: "number",
                                 min: 0,
                               },
-                            ]}
+                            ].filter(
+                              (field) =>
+                                field.name !== "water_initial" ||
+                                roomRates?.water_mode !== "person",
+                            )}
                             defaults={{
                               electricity_initial: "",
                               water_initial: "",
@@ -1308,11 +1328,14 @@ function Workspace({ session }: { session: Session }) {
                             onSubmit={(v) =>
                               save(
                                 () =>
-                                  rpc("set_initial_room_readings", {
+                                  rpc("set_arrival_readings", {
                                     org,
                                     target_cycle: billingCycle.id,
                                     electricity: v.electricity_initial,
-                                    water: v.water_initial,
+                                    water:
+                                      roomRates?.water_mode === "person"
+                                        ? null
+                                        : v.water_initial,
                                   }),
                                 "Đã lưu mốc nhận phòng",
                               )
@@ -1321,8 +1344,44 @@ function Workspace({ session }: { session: Session }) {
                         </>
                       )}
                     {canWrite &&
+                      roomRates?.water_mode !== "person" &&
+                      billingCycle?.water_meter_ready === false &&
+                      billingCycle.electricity_initial !== null && (
+                        <>
+                          <h3>Ghi mốc nước khi tính theo m³</h3>
+                          <DataForm
+                            schema={initialReadingsSchema.pick({
+                              water_initial: true,
+                            })}
+                            fields={[
+                              {
+                                name: "water_initial",
+                                label: "Nước · mốc khi chuyển sang m³",
+                                type: "number",
+                                min: 0,
+                              },
+                            ]}
+                            defaults={{ water_initial: "" }}
+                            submit="Lưu mốc nước"
+                            onSubmit={(v) =>
+                              save(
+                                () =>
+                                  rpc("set_water_baseline", {
+                                    org,
+                                    target_cycle: billingCycle.id,
+                                    water: v.water_initial,
+                                  }),
+                                "Đã lưu mốc nước",
+                              )
+                            }
+                          />
+                        </>
+                      )}
+                    {canWrite &&
                     roomRates &&
                     billingCycle &&
+                    (roomRates.water_mode === "person" ||
+                      billingCycle.water_meter_ready !== false) &&
                     (previous || billingCycle.electricity_initial !== null) ? (
                       <InvoiceForm
                         key={
@@ -1351,7 +1410,7 @@ function Workspace({ session }: { session: Session }) {
                         onSubmit={(v) =>
                           save(
                             () =>
-                              rpc("create_cycle_invoice", {
+                              rpc("create_water_invoice", {
                                 org,
                                 target_room: room.id,
                                 target_cycle: billingCycle!.id,
@@ -1374,9 +1433,12 @@ function Workspace({ session }: { session: Session }) {
                             : billingCycle.electricity_initial === null &&
                                 !previous
                               ? "Chưa có mốc nhận phòng"
-                              : canWrite
-                                ? "Chưa có đơn giá"
-                                : "Quyền chỉ xem"
+                              : roomRates?.water_mode !== "person" &&
+                                  billingCycle.water_meter_ready === false
+                                ? "Cần ghi mốc nước"
+                                : canWrite
+                                  ? "Chưa có đơn giá"
+                                  : "Quyền chỉ xem"
                         }
                         detail={
                           !billingCycle
@@ -1384,9 +1446,12 @@ function Workspace({ session }: { session: Session }) {
                             : billingCycle.electricity_initial === null &&
                                 !previous
                               ? "Ghi mốc điện/nước trước khi lập hóa đơn đầu tiên của đợt thuê."
-                              : canWrite
-                                ? "Thiết lập đơn giá của căn hộ này trong Cài đặt trước khi lập hóa đơn."
-                                : "Bạn có thể xem hóa đơn tại trang Người thuê."
+                              : roomRates?.water_mode !== "person" &&
+                                  billingCycle.water_meter_ready === false
+                                ? "Ghi mốc nước mới trước khi tính theo m³."
+                                : canWrite
+                                  ? "Thiết lập đơn giá của căn hộ này trong Cài đặt trước khi lập hóa đơn."
+                                  : "Bạn có thể xem hóa đơn tại trang Người thuê."
                         }
                       />
                     )}
@@ -1893,9 +1958,13 @@ function Workspace({ session }: { session: Session }) {
                     ],
                     [
                       "Mốc nước đầu đợt thuê",
-                      data.billingCycles
-                        .find((c) => c.id === tenant.billing_cycle_id)
-                        ?.water_initial?.toString() ?? "Chưa ghi",
+                      data.billingCycles.find(
+                        (c) => c.id === tenant.billing_cycle_id,
+                      )?.water_meter_ready === false
+                        ? "Nước tính theo người"
+                        : (data.billingCycles
+                            .find((c) => c.id === tenant.billing_cycle_id)
+                            ?.water_initial?.toString() ?? "Chưa ghi"),
                     ],
                   ].map(([label, value]) => (
                     <div key={label}>
@@ -2168,7 +2237,9 @@ function Workspace({ session }: { session: Session }) {
                     ],
                     [
                       "Nước",
-                      `${invoice.water_new - invoice.water_old} m³ × ${money(invoice.water_rate)}`,
+                      invoice.water_mode === "person"
+                        ? `${invoice.water_count} người × ${money(invoice.water_unit_rate || 0)} = ${money(invoice.water_fee || 0)}`
+                        : `${invoice.water_new - invoice.water_old} m³ × ${money(invoice.water_rate)}`,
                     ],
                     ["Dịch vụ", money(invoice.trash_fee + invoice.wifi_fee)],
                     [
@@ -2434,7 +2505,11 @@ function InvoiceForm({
   onSubmit: (v: Record<string, unknown>) => Promise<void>;
 }) {
   const eOld = previous?.electricity_new ?? baseline.electricity_initial ?? 0;
-  const wOld = previous?.water_new ?? baseline.water_initial ?? 0;
+  const perPersonWater = rates.water_mode === "person";
+  const wOld =
+    previous?.water_mode === "person" && !perPersonWater
+      ? (baseline.water_initial ?? 0)
+      : (previous?.water_new ?? baseline.water_initial ?? 0);
   const deadline = nextMonth(period).slice(0, 7) + "-05";
   const [readings, setReadings] = useState<{
     electricity: number;
@@ -2448,7 +2523,7 @@ function InvoiceForm({
         if (!form) return;
         const values = new FormData(form);
         const e = values.get("electricity_new"),
-          w = values.get("water_new");
+          w = perPersonWater ? String(wOld) : values.get("water_new");
         try {
           if (e === null || e === "" || w === null || w === "")
             throw new Error();
@@ -2486,14 +2561,14 @@ function InvoiceForm({
             type: "number",
             min: wOld,
           },
-        ]}
+        ].filter((field) => field.name !== "water_new" || !perPersonWater)}
         defaults={{
           period,
           due_date: deadline,
           electricity_old: eOld,
           water_old: wOld,
           electricity_new: "",
-          water_new: "",
+          water_new: perPersonWater ? wOld : "",
         }}
         submit="Lập hóa đơn"
         onSubmit={(values) =>
@@ -2509,15 +2584,20 @@ function InvoiceForm({
         <div className="bill-line">
           Điện · chỉ số cũ <output aria-label="Điện · chỉ số cũ">{eOld}</output>
         </div>
-        <div className="bill-line">
-          Nước · chỉ số cũ <output aria-label="Nước · chỉ số cũ">{wOld}</output>
-        </div>
+        {!perPersonWater && (
+          <div className="bill-line">
+            Nước · chỉ số cũ{" "}
+            <output aria-label="Nước · chỉ số cũ">{wOld}</output>
+          </div>
+        )}
         <div className="invoice-formula" aria-label="Công thức tính hóa đơn">
           <h3>Công thức tính</h3>
           <p>
-            Tổng tiền = (Số điện mới − Số điện cũ) × Đơn giá điện + (Số nước mới
-            − Số nước cũ) × Đơn giá nước + Tiền phòng + Dịch vụ + Số người × Đơn
-            giá máy giặt.
+            Tổng tiền = (Số điện mới − Số điện cũ) × Đơn giá điện +{" "}
+            {perPersonWater
+              ? "Số người × Đơn giá nước/người/tháng"
+              : "(Số nước mới − Số nước cũ) × Đơn giá nước"}{" "}
+            + Tiền phòng + Dịch vụ + Số người × Đơn giá máy giặt.
           </p>
           {readings && (
             <>
@@ -2529,8 +2609,17 @@ function InvoiceForm({
                 </b>
               </p>
               <p>
-                Nước: ({readings.water} − {wOld}) × {money(rates.water)} ={" "}
-                <b>{money((readings.water - wOld) * rates.water)}</b>
+                Nước:{" "}
+                {perPersonWater
+                  ? `${laundryPeople} người`
+                  : `(${readings.water} − ${wOld})`}{" "}
+                × {money(rates.water)} ={" "}
+                <b>
+                  {money(
+                    (perPersonWater ? laundryPeople : readings.water - wOld) *
+                      rates.water,
+                  )}
+                </b>
               </p>
             </>
           )}
@@ -2548,8 +2637,11 @@ function InvoiceForm({
             <p>
               Tổng tiền ={" "}
               {money((readings.electricity - eOld) * rates.electricity)} +{" "}
-              {money((readings.water - wOld) * rates.water)} +{" "}
-              {money(room.monthly_rent)} + {money(rates.trash + rates.wifi)} +{" "}
+              {money(
+                (perPersonWater ? laundryPeople : readings.water - wOld) *
+                  rates.water,
+              )}{" "}
+              + {money(room.monthly_rent)} + {money(rates.trash + rates.wifi)} +{" "}
               {money(rates.laundry * laundryPeople)} = <b>{money(preview!)}</b>
             </p>
           )}
@@ -2722,8 +2814,23 @@ function PropertyRates({
   canWrite: boolean;
   onSave: (v: Record<string, unknown>) => Promise<void>;
 }) {
+  const [waterMode, setWaterMode] = useState(rates?.water_mode || "meter");
+  useEffect(
+    () => setWaterMode(rates?.water_mode || "meter"),
+    [rates?.water_mode],
+  );
+  const fields = rateFields.map((field) =>
+    field.name === "water" && waterMode === "person"
+      ? { ...field, label: "Nước (đ/người/tháng)" }
+      : field,
+  );
   return (
     <section
+      onChange={(event) => {
+        const input = event.target as HTMLInputElement;
+        if (input.name === "water_mode")
+          setWaterMode(input.value as "meter" | "person");
+      }}
       className="panel settings property-rates"
       aria-label={"Đơn giá dịch vụ · " + property.name}
     >
@@ -2738,16 +2845,23 @@ function PropertyRates({
           schema={ratesSchema
             .omit({ trash: true, wifi: true })
             .extend({ service: ratesSchema.shape.trash })}
-          fields={rateFields}
+          fields={fields}
           defaults={
             rates
               ? {
                   electricity: rates.electricity,
                   water: rates.water,
+                  water_mode: rates.water_mode || "meter",
                   service: rates.trash + rates.wifi,
                   laundry: rates.laundry,
                 }
-              : { electricity: "", water: "", service: "", laundry: "" }
+              : {
+                  electricity: "",
+                  water: "",
+                  water_mode: "meter",
+                  service: "",
+                  laundry: "",
+                }
           }
           submit="Lưu đơn giá"
           onSubmit={({ service, ...values }) =>
@@ -2756,15 +2870,19 @@ function PropertyRates({
         />
       ) : rates ? (
         <div className="detail-list rate-list">
-          {rateFields.map((f) => (
+          {fields.map((f) => (
             <div key={f.name}>
               <span>{f.label}</span>
               <b>
-                {money(
-                  f.name === "service"
-                    ? rates.trash + rates.wifi
-                    : Number(rates[f.name as keyof Rates]),
-                )}
+                {f.name === "water_mode"
+                  ? waterMode === "person"
+                    ? "Theo người/tháng"
+                    : "Theo m³"
+                  : money(
+                      f.name === "service"
+                        ? rates.trash + rates.wifi
+                        : Number(rates[f.name as keyof Rates]),
+                    )}
               </b>
             </div>
           ))}

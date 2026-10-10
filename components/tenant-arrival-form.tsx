@@ -17,6 +17,13 @@ export function TenantArrivalForm({
 }) {
   const [selectedRoom, setSelectedRoom] = useState(roomId),
     [day, setDay] = useState(localDay());
+  const needsWater = (id: string) =>
+    data.rates.find(
+      (rate) =>
+        rate.property_id ===
+        data.rooms.find((room) => room.id === id)?.property_id,
+    )?.water_mode !== "person";
+  const meteredWater = needsWater(selectedRoom);
   const scheduled = day > localDay();
   const vacant = !!selectedRoom && !roomOccupiedOn(data, selectedRoom, day);
   return (
@@ -30,6 +37,7 @@ export function TenantArrivalForm({
       <DataForm
         schema={addTenantSchema(
           (room, date) => date > localDay() || roomOccupiedOn(data, room, date),
+          needsWater,
         )}
         fields={[
           ...fields,
@@ -47,7 +55,9 @@ export function TenantArrivalForm({
                   type: "number",
                   min: 0,
                 },
-              ]
+              ].filter(
+                (field) => field.name !== "water_initial" || meteredWater,
+              )
             : []),
         ]}
         defaults={{
@@ -69,9 +79,13 @@ export function TenantArrivalForm({
           {!selectedRoom
             ? "Chọn phòng để kiểm tra trạng thái."
             : scheduled
-              ? "Sắp vào ở: ghi chỉ số điện/nước tại ngày nhận phòng trước khi lập hóa đơn đầu tiên."
+              ? meteredWater
+                ? "Ghi chỉ số điện/nước khi đến ngày nhận phòng."
+                : "Ghi chỉ số điện khi đến ngày nhận phòng; nước tính theo người."
               : vacant
-                ? "Phòng trống tại ngày vào ở: bắt buộc ghi điện/nước để làm mốc hóa đơn cho đợt thuê mới."
+                ? meteredWater
+                  ? "Phòng trống: ghi chỉ số điện và nước lúc nhận phòng."
+                  : "Phòng trống: ghi chỉ số điện lúc nhận phòng. Nước tính theo người/tháng."
                 : "Phòng vẫn có người ở tại ngày vào ở: tiếp tục mốc hóa đơn chung, không cần ghi chỉ số nhận phòng mới."}
         </p>
       </DataForm>

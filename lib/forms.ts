@@ -53,6 +53,7 @@ export const tenantSchema = z
 export const ratesSchema = z.object({
   electricity: amount,
   water: amount,
+  water_mode: z.enum(["meter", "person"]).default("meter"),
   trash: amount,
   wifi: amount,
   laundry: amount,
@@ -71,6 +72,7 @@ export const initialReadingsSchema = z.object({
 });
 export const addTenantSchema = (
   occupied: (room: string, day: string) => boolean,
+  waterRequired: (room: string) => boolean = () => true,
 ) =>
   z.preprocess(
     (value) => {
@@ -87,6 +89,8 @@ export const addTenantSchema = (
           electricity_initial: undefined,
           water_initial: undefined,
         };
+      if (v && typeof v.room_id === "string" && !waterRequired(v.room_id))
+        return { ...v, water_initial: 0 };
       return value;
     },
     tenantSchema

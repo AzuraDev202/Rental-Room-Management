@@ -25,6 +25,7 @@ export type Tenant = {
   was_scheduled: boolean;
   billing_cycle_id: string | null;
   electricity_initial: number | null;
+  water_meter_on_arrival?: boolean;
   water_initial: number | null;
   id: string;
   organization_id: string;
@@ -43,6 +44,7 @@ export type Rates = {
   organization_id: string;
   electricity: number;
   water: number;
+  water_mode?: "meter" | "person";
   trash: number;
   wifi: number;
   laundry: number;
@@ -64,6 +66,10 @@ export type Invoice = {
   room_rent: number;
   trash_fee: number;
   wifi_fee: number;
+  water_mode?: "meter" | "person";
+  water_count?: number | null;
+  water_unit_rate?: number | null;
+  water_fee?: number;
   laundry_fee: number;
   laundry_rate?: number | null;
   laundry_count?: number | null;
@@ -107,6 +113,7 @@ export type BillingCycle = {
   starts_on: string;
   electricity_initial: number | null;
   water_initial: number | null;
+  water_meter_ready?: boolean;
   is_legacy: boolean;
 };
 export type Data = {

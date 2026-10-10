@@ -1304,6 +1304,124 @@ test("migration, authorization and billing integration", async (t) => {
     },
   );
   await t.test(
+    "water per person skips initial readings, snapshots fees and requires a new meter baseline on switching back",
+    async () => {
+      await as(users.owner);
+      const history = await query(
+        `select id,total,water_old,water_new,water_rate from invoices order by id`,
+      );
+      await db.exec("reset role");
+      await db.exec(
+        readFileSync(
+          "supabase/migrations/202610080009_water_billing_modes.sql",
+          "utf8",
+        ),
+      );
+      await as(users.owner);
+      assert.deepEqual(
+        await query(
+          `select id,total,water_old,water_new,water_rate from invoices order by id`,
+        ),
+        history,
+      );
+      const p = (
+        await query<{ id: string }>(
+          `select create_property($1,'Water Test','Address',0,1) as id`,
+          [org],
+        )
+      )[0].id;
+      const r = (
+        await query<{ id: string }>(
+          `select id from rooms where property_id=$1`,
+          [p],
+        )
+      )[0].id;
+      await db.query(
+        `insert into property_service_rates(property_id,organization_id,electricity,water,water_mode,trash,wifi,laundry) values($1,$2,1000,100000,'person',0,0,0)`,
+        [p, org],
+      );
+      const a = (
+        await query<{ id: string; billing_cycle_id: string }>(
+          `insert into tenants(organization_id,room_id,full_name,gender,birth_date,identity_number,phone,move_in,electricity_initial) values($1,$2,'Water A','Nam','1990-01-01','723456789001','0901234567','2020-01-01',100) returning id,billing_cycle_id`,
+          [org, r],
+        )
+      )[0];
+      await db.query(
+        `insert into tenants(organization_id,room_id,full_name,gender,birth_date,identity_number,phone,move_in) values($1,$2,'Water B','Nam','1990-01-01','723456789002','0901234568','2020-01-01')`,
+        [org, r],
+      );
+      const id = (
+        await query<{ id: string }>(
+          `select create_water_invoice($1,$2,$3,'2020-01-01','2020-02-05',100,110,0,0) as id`,
+          [org, r, a.billing_cycle_id],
+        )
+      )[0].id;
+      const bill = (
+        await query<{
+          water_count: number;
+          water_fee: number;
+          total: number;
+          water_mode: string;
+        }>(`select * from invoices where id=$1`, [id])
+      )[0];
+      assert.equal(bill.water_count, 2);
+      assert.equal(Number(bill.water_fee), 200000);
+      assert.equal(Number(bill.total), 210000);
+      assert.equal(bill.water_mode, "person");
+      await db.query(`update tenants set move_out='2020-02-01' where id=$1`, [
+        a.id,
+      ]);
+      await db.query(
+        `update property_service_rates set water_mode='meter',water=5000 where property_id=$1`,
+        [p],
+      );
+      await reject(
+        `select create_water_invoice($1,$2,$3,'2020-02-01','2020-03-05',110,120,0,2)`,
+        [org, r, a.billing_cycle_id],
+        /mốc nước/,
+      );
+      await db.query(`select set_water_baseline($1,$2,50)`, [
+        org,
+        a.billing_cycle_id,
+      ]);
+      const next = (
+        await query<{ id: string }>(
+          `select create_water_invoice($1,$2,$3,'2020-02-01','2020-03-05',110,120,50,52) as id`,
+          [org, r, a.billing_cycle_id],
+        )
+      )[0].id;
+      assert.equal(
+        Number(
+          (
+            await query<{ total: number }>(
+              `select total from invoices where id=$1`,
+              [next],
+            )
+          )[0].total,
+        ),
+        20000,
+      );
+      assert.equal(
+        Number(
+          (
+            await query<{ total: number }>(
+              `select total from invoices where id=$1`,
+              [id],
+            )
+          )[0].total,
+        ),
+        210000,
+      );
+      await as(users.viewer);
+      await reject(
+        `select set_water_baseline($1,$2,60)`,
+        [org, a.billing_cycle_id],
+        /quyền/,
+      );
+      await as(users.owner);
+    },
+  );
+  await t.test(
     "admin removes workspace access while preserving users, history and last admin",
     async () => {
       await as(users.manager);
