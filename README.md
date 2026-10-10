@@ -41,7 +41,7 @@ npm start
 
 1. Đăng ký, xác nhận email, đăng nhập.
 2. Tạo không gian quản lý đầu tiên; người tạo nhận quyền **Quản trị viên**. Nếu được cấp quyền vào không gian có sẵn, chọn **Nhận lời mời** thay vì tạo không gian mới.
-3. Vào **Căn hộ → Thêm căn hộ**, nhập tên, địa chỉ, số phòng và giá thuê căn hộ/tháng. Phòng được tạo trong cùng giao dịch và có giá thuê ban đầu 0; mở từng phòng để đặt tên và giá thuê thực tế.
+3. Vào **Căn hộ → Thêm căn hộ**, nhập tên, địa chỉ và số phòng. Phòng được tạo trong cùng giao dịch và có giá thuê ban đầu 0; mở từng phòng để đặt tên và giá thuê thực tế.
 4. Vào **Cài đặt** để nhập đơn giá điện/nước và phí rác, wifi, máy giặt **riêng cho từng căn hộ**. Phần đơn giá không hiển thị khi chưa có căn hộ. Các phí này hiện tính theo phòng/tháng. Căn hộ mới chưa có đơn giá cho đến khi được lưu; cần thiết lập trước khi lập hóa đơn.
 5. Thêm người thuê; khai báo họ tên, giới tính, ngày sinh, CCCD, điện thoại, email (tùy chọn), ngày vào ở. Sửa hồ sơ hoặc ghi nhận chuyển đi; giữ lại hồ sơ đã chuyển đi. Trang Người thuê mặc định chỉ hiển thị Đang ở, phân nhóm căn hộ → phòng; có bộ lọc Sắp vào ở/Đã chuyển đi/Tất cả, căn hộ, phòng và tìm kiếm theo tên/điện thoại/phòng/căn hộ.
 6. Tải hợp đồng PDF/JPG/PNG tối đa 10 MB, nhập ngày hiệu lực. Tệp thuộc đúng không gian và phòng; nút Xem tạo URL ký có hiệu lực 60 giây, không phải liên kết công khai.
@@ -122,3 +122,5 @@ Chạy nội dung `supabase/migrations/202610080007_remove_workspace_member.sql`
 Đơn giá **Dịch vụ (đ/phòng/tháng)** gộp Rác + Wifi thành một ô; Máy giặt giữ riêng. Tổng cũ tự hiển thị bằng hai khoản cộng lại; khi lưu, app dùng khoản gộp tương thích schema hiện có. Hóa đơn đã chốt không đổi tổng tiền, phần chi tiết hiển thị một dòng Dịch vụ. Không cần migration mới.
 
 Máy giặt: **đ/người/tháng**. Chạy migration `202610080008_laundry_per_person.sql` sau 007. Hóa đơn mới tính đơn giá × số người thuộc đợt thuê có thời gian ở giao tháng (đã đến ngày vào ở, loại lịch hủy), không chia ngày. Chốt số người và đơn giá cùng hóa đơn; hóa đơn cũ giữ nguyên tiền, không suy đoán số người lịch sử.
+
+Thêm căn hộ chỉ nhập tên, địa chỉ và số phòng; không nhập/hiển thị giá thuê nguyên căn. Giá thuê riêng từng phòng vẫn dùng lập hóa đơn. Hồ sơ căn hộ cũ giữ nguyên dữ liệu lưu trữ; căn hộ mới dùng giá nguyên căn 0 để tương thích database, không cần SQL mới.

@@ -104,12 +104,6 @@ const propertyFields: Field[] = [
   { name: "name", label: "Tên căn hộ" },
   { name: "address", label: "Địa chỉ" },
   { name: "room_count", label: "Số phòng", type: "number", min: 1, max: 100 },
-  {
-    name: "monthly_rent",
-    label: "Giá thuê căn hộ / tháng (VNĐ)",
-    type: "number",
-    min: 0,
-  },
 ];
 const roomFields: Field[] = [
   { name: "name", label: "Tên phòng" },
@@ -932,9 +926,6 @@ function Workspace({ session }: { session: Session }) {
                               </div>
                               <div className="property-foot">
                                 <span>
-                                  Thuê căn hộ: {money(p.monthly_rent)}/tháng
-                                </span>
-                                <span>
                                   Chi tiết <ArrowRight size={13} />
                                 </span>
                               </div>
@@ -1000,13 +991,7 @@ function Workspace({ session }: { session: Session }) {
               )}
               {page === "property" && property && (
                 <>
-                  <div className="stats three">
-                    <Stat
-                      label="Giá thuê căn hộ / tháng"
-                      value={money(property.monthly_rent)}
-                      icon={<Wallet size={21} />}
-                      foot="Chi phí thuê nguyên căn"
-                    />
+                  <div className="stats property-stats">
                     <Stat
                       label="Số phòng"
                       value={String(propertyRooms(property.id).length)}
@@ -1766,12 +1751,11 @@ function Workspace({ session }: { session: Session }) {
                   sau.
                 </p>
                 <DataForm
-                  schema={propertySchema}
+                  schema={propertySchema.omit({ monthly_rent: true })}
                   fields={propertyFields}
                   defaults={{
                     name: "",
                     address: "",
-                    monthly_rent: "",
                     room_count: "",
                   }}
                   submit="Thêm căn hộ"
@@ -1782,7 +1766,7 @@ function Workspace({ session }: { session: Session }) {
                           org,
                           property_name: v.name,
                           property_address: v.address,
-                          rent: v.monthly_rent,
+                          rent: 0,
                           room_count: v.room_count,
                         }),
                       "Đã thêm căn hộ",

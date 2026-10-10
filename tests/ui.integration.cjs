@@ -348,9 +348,12 @@ const uid = "00000000-0000-0000-0000-000000000001",
   await page.getByLabel("Tên căn hộ", { exact: true }).fill("Test Building");
   await page.getByLabel("Địa chỉ", { exact: true }).fill("Test Address");
   await page.getByLabel("Số phòng", { exact: true }).fill("1");
-  await page
-    .getByLabel("Giá thuê căn hộ / tháng (VNĐ)", { exact: true })
-    .fill("18000000");
+  assert.equal(
+    await page
+      .getByLabel("Giá thuê căn hộ / tháng (VNĐ)", { exact: true })
+      .count(),
+    0,
+  );
   await page
     .getByRole("button", { name: "Thêm căn hộ", exact: true })
     .last()
@@ -756,9 +759,12 @@ const uid = "00000000-0000-0000-0000-000000000001",
   await page.getByLabel("Tên căn hộ", { exact: true }).fill("Delete UI");
   await page.getByLabel("Địa chỉ", { exact: true }).fill("Address");
   await page.getByLabel("Số phòng", { exact: true }).fill("1");
-  await page
-    .getByLabel("Giá thuê căn hộ / tháng (VNĐ)", { exact: true })
-    .fill("0");
+  assert.equal(
+    await page
+      .getByLabel("Giá thuê căn hộ / tháng (VNĐ)", { exact: true })
+      .count(),
+    0,
+  );
   await page
     .getByRole("button", { name: "Thêm căn hộ", exact: true })
     .last()
