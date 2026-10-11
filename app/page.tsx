@@ -756,7 +756,10 @@ function Workspace({ session }: { session: Session }) {
           {loading ? (
             <Loading label="Đang tải dữ liệu..." />
           ) : (
-            <>
+            <div
+              className="page-content"
+              key={`${org}:${page}:${page === "room" ? roomId : page === "property" ? propertyId : ""}`}
+            >
               {page === "dashboard" && (
                 <>
                   <div className="stats">
@@ -1760,7 +1763,7 @@ function Workspace({ session }: { session: Session }) {
                   )}
                 </>
               )}
-            </>
+            </div>
           )}
           <footer>
             <span>
