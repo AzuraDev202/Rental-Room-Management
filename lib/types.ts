@@ -98,7 +98,7 @@ export type Contract = {
 export type Invitation = {
   id: string;
   email: string;
-  role: "manager" | "viewer";
+  role: "admin" | "manager" | "viewer";
 };
 export type InvoiceTenant = {
   id: string;

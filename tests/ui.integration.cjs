@@ -81,6 +81,7 @@ const uid = "00000000-0000-0000-0000-000000000001",
       "012_edit_room_lease",
       "013_advance_fixed_fees",
       "014_water_person_only",
+      "015_manager_only",
     ])
       await db.exec(
         fs.readFileSync(
@@ -491,6 +492,30 @@ const uid = "00000000-0000-0000-0000-000000000001",
         ).rows[0].total,
       ),
       4130,
+    );
+    await page.getByRole("button", { name: "Cài đặt", exact: true }).click();
+    await page
+      .getByRole("heading", { name: "Người quản lý", exact: true })
+      .waitFor();
+    assert.equal(await page.getByLabel(/Vai trò của/).count(), 0);
+    await page
+      .getByRole("button", { name: "Thêm người quản lý", exact: true })
+      .click();
+    assert.equal(await page.getByLabel("Vai trò", { exact: true }).count(), 0);
+    await page
+      .getByLabel("Email", { exact: true })
+      .fill("new.manager@test.invalid");
+    await page
+      .getByRole("button", { name: "Lưu lời mời", exact: true })
+      .click();
+    await page.getByText("Đã tạo lời mời", { exact: true }).waitFor();
+    assert.equal(
+      (
+        await db.query(
+          "select role from invitations where email='new.manager@test.invalid'",
+        )
+      ).rows[0].role,
+      "admin",
     );
     assert.equal(errors.length, 0);
     console.log(

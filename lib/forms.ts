@@ -147,7 +147,7 @@ export const inviteSchema = z.object({
     .trim()
     .email("Email không hợp lệ")
     .transform((s) => s.toLowerCase()),
-  role: z.enum(["manager", "viewer"]),
+  role: z.literal("admin").default("admin"),
 });
 export const workspaceSchema = z.object({
   workspace_name: text(120),

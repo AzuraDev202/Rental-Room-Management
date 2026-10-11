@@ -96,9 +96,9 @@ import {
   type Rates,
 } from "../lib/types";
 const roleNames: Record<Role, string> = {
-  admin: "Quản trị viên",
-  manager: "Quản lý",
-  viewer: "Chỉ xem",
+  admin: "Người quản lý",
+  manager: "Người quản lý",
+  viewer: "Người quản lý",
 };
 const rateFields: Field[] = [
   { name: "electricity", label: "Điện (₫/kWh)", type: "number", min: 0 },
@@ -244,8 +244,8 @@ function Workspace({ session }: { session: Session }) {
   const member =
     data.members.find((m) => m.user_id === session.user.id) ||
     memberships.find((m) => m.organization_id === org);
-  const canWrite = member?.role === "admin" || member?.role === "manager";
-  const admin = member?.role === "admin";
+  const canWrite = !!member;
+  const admin = !!member;
   const name =
     member?.display_name ||
     String(session.user.user_metadata.display_name || session.user.email || "");
@@ -320,7 +320,7 @@ function Workspace({ session }: { session: Session }) {
     setLoading(true);
     setData(emptyData);
     setError("");
-    loadData(org, orgRole === "admin")
+    loadData(org, true)
       .then((d) => {
         if (active) setData(d);
       })
@@ -341,9 +341,7 @@ function Workspace({ session }: { session: Session }) {
       setData(emptyData);
       return;
     }
-    setData(
-      await loadData(membership.organization_id, membership.role === "admin"),
-    );
+    setData(await loadData(membership.organization_id, true));
   };
   const save = async (
     operation: () => Promise<unknown>,
@@ -543,7 +541,7 @@ function Workspace({ session }: { session: Session }) {
         <section className="auth-card setup-card">
           <h1>Không gian quản lý đầu tiên</h1>
           <p>
-            Tạo không gian mới, hoặc nhận quyền truy cập được quản trị viên cấp
+            Tạo không gian mới, hoặc nhận quyền truy cập được người quản lý thêm
             cho email của bạn.
           </p>
           {error && (
@@ -661,7 +659,7 @@ function Workspace({ session }: { session: Session }) {
         <div className="side-bottom">
           <div className="help-card">
             <Shield size={20} />
-            <b>{member ? roleNames[member.role] : "Đang tải quyền"}</b>
+            <b>{member ? roleNames[member.role] : "Đang tải tài khoản"}</b>
           </div>
           <button className="profile" onClick={logout} disabled={busy}>
             <span className="avatar">
@@ -1016,7 +1014,7 @@ function Workspace({ session }: { session: Session }) {
                       detail={
                         canWrite
                           ? "Mở trang Căn hộ và chọn “Thêm căn hộ” để bắt đầu."
-                          : "Quản trị viên hoặc quản lý sẽ thêm căn hộ cho không gian này."
+                          : "Người quản lý sẽ thêm căn hộ cho không gian này."
                       }
                     />
                   ) : (
@@ -1508,7 +1506,7 @@ function Workspace({ session }: { session: Session }) {
                                 ? "Cần ghi mốc nước"
                                 : canWrite
                                   ? "Chưa có đơn giá"
-                                  : "Quyền chỉ xem"
+                                  : "Chưa có tài khoản quản lý"
                         }
                         detail={
                           !billingCycle
@@ -1766,10 +1764,10 @@ function Workspace({ session }: { session: Session }) {
                   <section className="panel team-panel">
                     <div className="panel-heading">
                       <div>
-                        <h2>Thành viên & phân quyền</h2>
+                        <h2>Người quản lý</h2>
                         <p>
-                          Quản trị viên cấp quyền bằng email. Người được cấp
-                          đăng ký bằng đúng email và chọn nhận lời mời.
+                          Thêm người quản lý bằng email. Mọi người quản lý có
+                          đầy đủ quyền trong không gian này.
                         </p>
                       </div>
                       {admin && (
@@ -1777,7 +1775,7 @@ function Workspace({ session }: { session: Session }) {
                           className="secondary"
                           onClick={() => setModal("invite")}
                         >
-                          <Plus size={15} /> Cấp quyền
+                          <Plus size={15} /> Thêm người quản lý
                         </button>
                       )}
                     </div>
@@ -1787,7 +1785,6 @@ function Workspace({ session }: { session: Session }) {
                           <tr>
                             <th>THÀNH VIÊN</th>
                             <th>EMAIL</th>
-                            <th>VAI TRÒ</th>
                             {admin && <th>THAO TÁC</th>}
                           </tr>
                         </thead>
@@ -1796,36 +1793,6 @@ function Workspace({ session }: { session: Session }) {
                             <tr key={m.user_id}>
                               <td>{m.display_name}</td>
                               <td>{m.email}</td>
-                              <td>
-                                {admin ? (
-                                  <select
-                                    aria-label={`Vai trò của ${m.display_name}`}
-                                    value={m.role}
-                                    disabled={busy}
-                                    onChange={(e) =>
-                                      act(
-                                        () =>
-                                          rpc("set_member_role", {
-                                            org,
-                                            target_user: m.user_id,
-                                            new_role: e.target.value,
-                                          }),
-                                        "Đã cập nhật vai trò",
-                                      )
-                                    }
-                                  >
-                                    {Object.entries(roleNames).map(
-                                      ([value, label]) => (
-                                        <option key={value} value={value}>
-                                          {label}
-                                        </option>
-                                      ),
-                                    )}
-                                  </select>
-                                ) : (
-                                  roleNames[m.role]
-                                )}
-                              </td>
                               {admin && (
                                 <td>
                                   <button
@@ -2515,25 +2482,15 @@ function Workspace({ session }: { session: Session }) {
             )}
             {modal === "invite" && (
               <>
-                <h2>Cấp quyền truy cập</h2>
+                <h2>Thêm người quản lý</h2>
                 <p>
-                  Người được cấp quyền đăng ký bằng email này và chọn “Nhận lời
-                  mời”. Ứng dụng không tự gửi email mời.
+                  Người được mời đăng ký bằng email này và chọn “Nhận lời mời”.
+                  Ứng dụng không tự gửi email mời.
                 </p>
                 <DataForm
                   schema={inviteSchema}
-                  fields={[
-                    { name: "email", label: "Email", type: "email" },
-                    {
-                      name: "role",
-                      label: "Vai trò",
-                      options: [
-                        { value: "manager", label: "Quản lý" },
-                        { value: "viewer", label: "Chỉ xem" },
-                      ],
-                    },
-                  ]}
-                  defaults={{ email: "", role: "viewer" }}
+                  fields={[{ name: "email", label: "Email", type: "email" }]}
+                  defaults={{ email: "", role: "admin" }}
                   submit="Lưu lời mời"
                   onSubmit={(v) =>
                     save(

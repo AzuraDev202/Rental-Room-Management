@@ -5,7 +5,7 @@
 ## 1. Tạo và cấu hình Supabase
 
 1. Tạo dự án tại https://supabase.com/dashboard. Chọn vùng gần Việt Nam và lưu mật khẩu database trong trình quản lý mật khẩu.
-2. Mở **SQL Editor**, chạy lần lượt `supabase/migrations/202610080001_hh_home.sql` rồi `supabase/migrations/202610080002_property_service_rates.sql` rồi `supabase/migrations/202610080003_delete_property.sql` và `supabase/migrations/202610080004_tenant_document_history.sql` và `supabase/migrations/202610080005_delete_vacant_property.sql` rồi `supabase/migrations/202610080006_room_move_in_readings.sql` rồi `supabase/migrations/202610080007_remove_workspace_member.sql` rồi `supabase/migrations/202610080008_laundry_per_person.sql` rồi `supabase/migrations/202610080009_water_billing_modes.sql` rồi `supabase/migrations/202610080010_operations.sql` rồi `supabase/migrations/202610080011_monthly_billing_schedule.sql` rồi `supabase/migrations/202610080012_edit_room_lease.sql` rồi `supabase/migrations/202610080013_advance_fixed_fees.sql` rồi `supabase/migrations/202610080014_water_person_only.sql`, mỗi file một lần trên dự án mới. Migration tạo bảng, RPC, RLS và bucket `contracts` riêng tư; không tạo dữ liệu căn hộ/người thuê/hóa đơn.
+2. Mở **SQL Editor**, chạy lần lượt `supabase/migrations/202610080001_hh_home.sql` rồi `supabase/migrations/202610080002_property_service_rates.sql` rồi `supabase/migrations/202610080003_delete_property.sql` và `supabase/migrations/202610080004_tenant_document_history.sql` và `supabase/migrations/202610080005_delete_vacant_property.sql` rồi `supabase/migrations/202610080006_room_move_in_readings.sql` rồi `supabase/migrations/202610080007_remove_workspace_member.sql` rồi `supabase/migrations/202610080008_laundry_per_person.sql` rồi `supabase/migrations/202610080009_water_billing_modes.sql` rồi `supabase/migrations/202610080010_operations.sql` rồi `supabase/migrations/202610080011_monthly_billing_schedule.sql` rồi `supabase/migrations/202610080012_edit_room_lease.sql` rồi `supabase/migrations/202610080013_advance_fixed_fees.sql` rồi `supabase/migrations/202610080014_water_person_only.sql` rồi `supabase/migrations/202610080015_manager_only.sql`, mỗi file một lần trên dự án mới. Migration tạo bảng, RPC, RLS và bucket `contracts` riêng tư; không tạo dữ liệu căn hộ/người thuê/hóa đơn.
 3. Trong **Authentication → Providers → Email**, bật đăng ký email/password và **Confirm email**. Thiết lập mật khẩu tối thiểu 8 ký tự. Với môi trường production, cấu hình SMTP để gửi email xác nhận và đặt lại mật khẩu ổn định.
 4. Trong **Authentication → URL Configuration**, đặt Site URL theo domain triển khai và thêm redirect URL cho domain đó. Khi chạy local, thêm `http://localhost:3000` và `http://localhost:3000/**`. Production dùng domain HTTPS cụ thể, không dùng wildcard rộng.
 5. Lấy Project URL và **publishable key hoặc anon key** từ Project Settings → API. Chỉ hai giá trị công khai này được dùng trong frontend. Không dùng `service_role` hoặc secret key.
@@ -40,7 +40,7 @@ npm start
 ## 3. Bắt đầu sử dụng
 
 1. Đăng ký, xác nhận email, đăng nhập.
-2. Tạo không gian quản lý đầu tiên; người tạo nhận quyền **Quản trị viên**. Nếu được cấp quyền vào không gian có sẵn, chọn **Nhận lời mời** thay vì tạo không gian mới.
+2. Tạo không gian quản lý đầu tiên; người tạo trở thành **Người quản lý**. Nếu được cấp quyền vào không gian có sẵn, chọn **Nhận lời mời** thay vì tạo không gian mới.
 3. Vào **Căn hộ → Thêm căn hộ**, nhập tên, địa chỉ và số phòng. Phòng được tạo trong cùng giao dịch và có giá thuê ban đầu 0; mở từng phòng để đặt tên và giá thuê thực tế.
 4. Sau khi tạo căn hộ, popup **Thiết lập đơn giá** tự mở. Lưu đơn giá để chuyển đến trang quản lý phòng của căn hộ đó. Trong **Cài đặt**, danh sách đơn giá chia 10 căn hộ mỗi trang; tìm theo tên hoặc địa chỉ (hỗ trợ không dấu), bấm **Sửa đơn giá** để mở popup. Dùng popup để xem và sửa đơn giá điện/nước, phí dịch vụ và máy giặt **riêng cho từng căn hộ**. Phần đơn giá không hiển thị khi chưa có căn hộ. Phí dịch vụ tính theo phòng/tháng; máy giặt tính theo người/tháng. Nước chỉ tính theo người/tháng. Căn hộ mới chưa có đơn giá cho đến khi được lưu; cần thiết lập trước khi lập hóa đơn.
 5. Thêm người thuê; khai báo họ tên, giới tính, ngày sinh, CCCD, điện thoại, email (tùy chọn), ngày vào ở. Sửa hồ sơ hoặc ghi nhận chuyển đi; giữ lại hồ sơ đã chuyển đi. Trang Người thuê mặc định chỉ hiển thị Đang ở, phân nhóm căn hộ → phòng; có bộ lọc Sắp vào ở/Đã chuyển đi/Tất cả, căn hộ, phòng và tìm kiếm theo tên/điện thoại/phòng/căn hộ.
@@ -49,17 +49,11 @@ npm start
 8. Trong **Hóa đơn**, ghi nhận thanh toán một phần hoặc toàn bộ. Máy chủ khóa hóa đơn khi thu tiền, chặn vượt công nợ và thu lặp khi đã đủ. Ngày thanh toán là thời điểm ghi nhận, không hỗ trợ sửa lịch sử hoặc backdate.
 9. Dashboard thống kê thực thu theo ngày nhận tiền, quy đổi giờ Việt Nam; chọn tháng/năm và lọc căn hộ cho biểu đồ 12 tháng. Còn phải thu được lọc theo kỳ hóa đơn. Tỷ lệ lấp đầy dựa vào ngày vào ở/chuyển đi, tính theo ngày hiện tại ở Việt Nam.
 
-## 4. Phân quyền
+## 4. Người quản lý
 
-| Vai trò       | Xem dữ liệu/hợp đồng | Căn hộ, phòng, người thuê, đơn giá | Lập hóa đơn, thu tiền, tải hợp đồng | Cấp quyền thành viên |
-| ------------- | -------------------- | ---------------------------------- | ----------------------------------- | -------------------- |
-| Quản trị viên | Có                   | Có                                 | Có                                  | Có                   |
-| Quản lý       | Có                   | Có                                 | Có                                  | Không                |
-| Chỉ xem       | Có                   | Không                              | Không                               | Không                |
+Ứng dụng chỉ dành cho người quản lý. Tất cả tài khoản trong một không gian đều có đầy đủ quyền quản lý dữ liệu và thêm/xóa người quản lý; không có vai trò chỉ xem hoặc thao tác đổi vai trò. Trong **Cài đặt → Người quản lý**, thêm lời mời bằng email. Người nhận đăng ký đúng email, xác minh và chọn nhận lời mời; ứng dụng không tự gửi email mời. Không thể tự xóa mình hoặc xóa tài khoản quản lý cuối cùng.
 
-Quản trị viên vào **Cài đặt → Cấp quyền** để tạo lời mời theo email, vai trò Quản lý/Chỉ xem. Người nhận đăng ký bằng đúng email, xác nhận email và chọn nhận lời mời. Ứng dụng không tự gửi email mời. Có thể hủy lời mời chờ và đổi vai trò thành viên, nhưng luôn giữ ít nhất một quản trị viên. Người dùng có thể tham gia nhiều không gian và chọn không gian ở thanh bên.
-
-RLS và RPC kiểm tra quyền độc lập với UI. CCCD, hồ sơ và hợp đồng có thể được đọc bởi cả ba vai trò trong cùng không gian; không cung cấp cổng đăng nhập người thuê trong phiên bản này.
+Đăng nhập và RLS vẫn tách dữ liệu giữa các không gian. Tài khoản không thuộc không gian không được xem hoặc sửa dữ liệu của không gian đó.
 
 ## 5. Cơ sở dữ liệu và vận hành
 
@@ -81,9 +75,9 @@ Migration mới tạo đơn giá riêng cho từng căn hộ, sao chép bộ đ�
 
 Cập nhật database đã có: chạy **nội dung** [202610080003_delete_property.sql](supabase/migrations/202610080003_delete_property.sql) một lần sau hai migration trước. Không chạy lại các migration đã áp dụng.
 
-Quản trị viên/Quản lý mở trang chi tiết căn hộ → **Xóa căn hộ**, nhập chính xác tên căn hộ và xác nhận. Sau khi áp dụng migration 005, căn hộ không còn người đang ở hoặc lịch vào ở chưa kết thúc có thể xóa khỏi danh sách quản lý. Căn hộ chưa có dữ liệu được xóa cùng phòng/đơn giá; căn hộ có lịch sử được đánh dấu đã xóa, giữ phòng làm tham chiếu cho người thuê, hợp đồng, hóa đơn, thanh toán và tệp riêng tư. Xem tiếp ở Người thuê → Đã chuyển đi; vẫn thu được công nợ cũ. Căn hộ đã xóa không được nhận thêm người thuê, sửa phòng/đơn giá, lập hóa đơn hoặc tải hợp đồng mới.
+Người quản lý mở trang chi tiết căn hộ → **Xóa căn hộ**, nhập chính xác tên căn hộ và xác nhận. Sau khi áp dụng migration 005, căn hộ không còn người đang ở hoặc lịch vào ở chưa kết thúc có thể xóa khỏi danh sách quản lý. Căn hộ chưa có dữ liệu được xóa cùng phòng/đơn giá; căn hộ có lịch sử được đánh dấu đã xóa, giữ phòng làm tham chiếu cho người thuê, hợp đồng, hóa đơn, thanh toán và tệp riêng tư. Xem tiếp ở Người thuê → Đã chuyển đi; vẫn thu được công nợ cũ. Căn hộ đã xóa không được nhận thêm người thuê, sửa phòng/đơn giá, lập hóa đơn hoặc tải hợp đồng mới.
 
-Chạy **nội dung** [202610080005_delete_vacant_property.sql](supabase/migrations/202610080005_delete_vacant_property.sql) một lần sau migration 004 để cập nhật quy tắc xóa; không chạy lại migration đã áp dụng. Căn hộ đã xóa không nằm trong số căn hộ/phòng đang quản lý hoặc cấu hình đơn giá, nhưng doanh thu và công nợ lịch sử vẫn giữ nguyên. Có thể tạo căn hộ mới cùng tên; hồ sơ mới độc lập với lịch sử cũ. Vai trò Chỉ xem không có quyền xóa.
+Chạy **nội dung** [202610080005_delete_vacant_property.sql](supabase/migrations/202610080005_delete_vacant_property.sql) một lần sau migration 004 để cập nhật quy tắc xóa; không chạy lại migration đã áp dụng. Căn hộ đã xóa không nằm trong số căn hộ/phòng đang quản lý hoặc cấu hình đơn giá, nhưng doanh thu và công nợ lịch sử vẫn giữ nguyên. Có thể tạo căn hộ mới cùng tên; hồ sơ mới độc lập với lịch sử cũ.
 
 ## Lịch sử người thuê sau khi chuyển đi
 
@@ -117,7 +111,7 @@ App cần Internet để đăng nhập và thao tác dữ liệu Supabase. Servi
 
 ## Xóa người dùng khỏi không gian
 
-Chạy nội dung `supabase/migrations/202610080007_remove_workspace_member.sql` một lần sau migration 006. Quản trị viên vào Cài đặt → Quản lý người dùng → Xóa người dùng, nhập email để xác nhận. Chỉ thu hồi quyền của không gian hiện tại và hủy lời mời còn chờ tại đó; giữ tài khoản đăng nhập, quyền ở không gian khác và toàn bộ chứng từ. Không được xóa quản trị viên cuối cùng hoặc tự xóa quyền của mình.
+Chạy nội dung `supabase/migrations/202610080007_remove_workspace_member.sql` một lần sau migration 006. Quản trị viên vào Cài đặt → Quản lý người dùng → Xóa người dùng, nhập email để xác nhận. Chỉ thu hồi quyền của không gian hiện tại và hủy lời mời còn chờ tại đó; giữ tài khoản đăng nhập, quyền ở không gian khác và toàn bộ chứng từ. Không được xóa người quản lý cuối cùng hoặc tự xóa quyền của mình.
 
 Đơn giá **Dịch vụ (đ/phòng/tháng)** gộp Rác + Wifi thành một ô; Máy giặt giữ riêng. Tổng cũ tự hiển thị bằng hai khoản cộng lại; khi lưu, app dùng khoản gộp tương thích schema hiện có. Hóa đơn đã chốt không đổi tổng tiền, phần chi tiết hiển thị một dòng Dịch vụ. Không cần migration mới.
 
@@ -140,7 +134,7 @@ Chạy **toàn bộ nội dung migration 010 sau 009** một lần trước khi 
 - **Thu chi** ghi khoản chi theo căn hộ/phòng/ngày chi, lọc căn hộ và kỳ. Biểu đồ cả năm gồm thực thu, thực chi, lợi nhuận vận hành = tiền thuê thực thu − chi phí thực chi. Không phải tổng tiền mặt: cọc/khấu trừ cọc không nằm trong chỉ tiêu này. Khoản chi sai có thể hủy bằng xác nhận; vẫn giữ bản ghi lịch sử.
 - **Bảo trì** do người quản lý ghi nhận, chọn phòng, mức ưu tiên, cập nhật Chờ xử lý/Đang xử lý/Hoàn thành/Đã hủy. Nút ghi chi phí sửa chữa tạo cùng một khoản chi trong Thu chi, không tính hai lần. Chi tiết phòng có lịch sử sửa chữa. Căn hộ đã xóa vẫn giữ lịch sử, không thêm hoặc sửa sự cố của căn hộ đó.
 - **Nhắc việc** tự tổng hợp hóa đơn còn nợ/quá hạn, hợp đồng cần gia hạn và phòng đang ở chưa lập hóa đơn tháng hiện tại. Có nút mở phòng hoặc thu tiền. Cần nhập chỉ số mới và xác nhận trước khi phát hành hóa đơn; không tự phát hành khi chưa có chỉ số. Nhắc việc hiện trong app, chưa tích hợp dịch vụ gửi email/SMS hay tác vụ nền.
-- **Cài đặt → Giao diện → Chế độ tối** lưu lựa chọn trên thiết bị. Người chỉ xem được xem các sổ nhưng không được ghi cọc, khoản chi hoặc sửa bảo trì.
+- **Cài đặt → Giao diện → Chế độ tối** lưu lựa chọn trên thiết bị.
 
 Kiểm thử thao tác bằng PostgreSQL PGlite và HTTP Auth/Storage mô phỏng; không tự áp migration hay gửi thông báo trên dự án Supabase thật.
 
@@ -149,3 +143,5 @@ Hóa đơn đầu tháng thu trước tiền phòng, dịch vụ, máy giặt v�
 Sửa thông tin hợp đồng theo phòng: ngày kết thúc có thể ghi khi chưa tải tệp hợp đồng; tiền cọc còn giữ được điều chỉnh bằng giao dịch nhận/khấu trừ, không xóa lịch sử. Chỉ số ban đầu sửa được trước khi đợt thuê có hóa đơn; sau đó khóa để bảo toàn hóa đơn đã chốt.
 
 Migration 014 đổi tất cả căn hộ sang nước theo người, giữ nguyên giá trị số của đơn giá hiện có và hóa đơn cũ. Quản lý cần kiểm tra lại đơn giá nước từng căn hộ theo đơn vị đ/người/tháng; không tự quy đổi từ giá mỗi m³. Phòng mới không cần chỉ số nước, hóa đơn mới không nhập số nước.
+
+Migration 015 bỏ các cấp vai trò: mọi thành viên và lời mời trở thành tài khoản quản lý đầy đủ quyền trong không gian của mình. Đăng nhập, xác minh email và RLS cách ly dữ liệu giữa các không gian vẫn áp dụng. Giao diện không chọn hoặc sửa vai trò; có thể thêm/xóa người quản lý.
