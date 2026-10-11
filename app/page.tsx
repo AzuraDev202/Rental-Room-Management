@@ -1,7 +1,10 @@
 "use client";
 import { z } from "zod";
 import { Deposits } from "../components/deposits";
-import { TenancySummary } from "../components/tenancy-summary";
+import {
+  TenancySummary,
+  RoomLeaseSummary,
+} from "../components/tenancy-summary";
 import {
   FinancePanel,
   MaintenancePanel,
@@ -1255,10 +1258,7 @@ function Workspace({ session }: { session: Session }) {
                           </button>
                         )}
                       </div>
-                      <TenancySummary
-                        data={data}
-                        tenants={activeTenants(room.id)}
-                      />
+                      <RoomLeaseSummary data={data} roomId={room.id} />
                       {currentRoomContracts.map((c) => (
                         <div className="contract" key={c.id}>
                           <FileText size={25} />
@@ -1266,11 +1266,6 @@ function Workspace({ session }: { session: Session }) {
                             <b>{c.file_name}</b>
                             <small>
                               {c.starts_on} – {c.ends_on}
-                            </small>
-                            <small>
-                              {documentTenants(data, "contract", c.id)
-                                .map((t) => t.full_name)
-                                .join(", ") || "Chưa gán người thuê"}
                             </small>
                           </div>
                           <button
@@ -1614,7 +1609,7 @@ function Workspace({ session }: { session: Session }) {
                         />
                       )}
                       <h3 className="history-title">Hợp đồng của người thuê</h3>
-                      <TenancySummary data={data} tenants={[tenant]} />
+
                       {data.contracts
                         .filter((c) =>
                           data.contractTenants.some(
