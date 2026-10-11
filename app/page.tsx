@@ -1532,6 +1532,31 @@ function Workspace({ session }: { session: Session }) {
                   </section>
                 </div>
               )}
+              {page === "room" &&
+                room &&
+                !data.operationsMigrationRequired &&
+                activeTenants(room.id).length > 0 && (
+                  <section
+                    className="panel contracts-panel"
+                    aria-label="Tiền đặt cọc của phòng"
+                  >
+                    <div className="panel-heading">
+                      <h2>Tiền đặt cọc</h2>
+                    </div>
+                    {activeTenants(room.id).map((t) => (
+                      <div className="room-tenant-deposit" key={t.id}>
+                        <h3>{t.full_name}</h3>
+                        <Deposits
+                          data={data}
+                          tenantId={t.id}
+                          org={org}
+                          canWrite={canWrite}
+                          onChanged={refresh}
+                        />
+                      </div>
+                    ))}
+                  </section>
+                )}
               {page === "room" && room && !data.operationsMigrationRequired && (
                 <MaintenancePanel
                   key={org + room.id}
@@ -2104,22 +2129,26 @@ function Workspace({ session }: { session: Session }) {
                     ["Email", tenant.email || "Chưa cung cấp"],
                     ["Ngày vào ở", tenant.move_in],
                     ["Ngày chuyển đi", tenant.move_out || "Đang ở"],
-                    [
-                      "Mốc điện đầu đợt thuê",
-                      data.billingCycles
-                        .find((c) => c.id === tenant.billing_cycle_id)
-                        ?.electricity_initial?.toString() ?? "Chưa ghi",
-                    ],
-                    [
-                      "Mốc nước đầu đợt thuê",
-                      data.billingCycles.find(
-                        (c) => c.id === tenant.billing_cycle_id,
-                      )?.water_meter_ready === false
-                        ? "Nước tính theo người"
-                        : (data.billingCycles
-                            .find((c) => c.id === tenant.billing_cycle_id)
-                            ?.water_initial?.toString() ?? "Chưa ghi"),
-                    ],
+                    ...(page === "room"
+                      ? []
+                      : [
+                          [
+                            "Mốc điện đầu đợt thuê",
+                            data.billingCycles
+                              .find((c) => c.id === tenant.billing_cycle_id)
+                              ?.electricity_initial?.toString() ?? "Chưa ghi",
+                          ],
+                          [
+                            "Mốc nước đầu đợt thuê",
+                            data.billingCycles.find(
+                              (c) => c.id === tenant.billing_cycle_id,
+                            )?.water_meter_ready === false
+                              ? "Nước tính theo người"
+                              : (data.billingCycles
+                                  .find((c) => c.id === tenant.billing_cycle_id)
+                                  ?.water_initial?.toString() ?? "Chưa ghi"),
+                          ],
+                        ]),
                   ].map(([label, value]) => (
                     <div key={label}>
                       <span>{label}</span>
@@ -2127,101 +2156,106 @@ function Workspace({ session }: { session: Session }) {
                     </div>
                   ))}
                 </div>
-                {!data.operationsMigrationRequired && (
-                  <Deposits
-                    data={data}
-                    tenantId={tenant.id}
-                    org={org}
-                    canWrite={canWrite}
-                    onChanged={refresh}
-                  />
-                )}
-                <h3 className="history-title">Hợp đồng của người thuê</h3>
-                <TenancySummary data={data} tenants={[tenant]} />
-                {data.contracts
-                  .filter((c) =>
-                    data.contractTenants.some(
-                      (l) =>
-                        l.contract_id === c.id && l.tenant_id === tenant.id,
-                    ),
-                  )
-                  .map((c) => (
-                    <div className="contract" key={c.id}>
-                      <FileText size={20} />
-                      <div>
-                        <b>{c.file_name}</b>
-                        <small>
-                          {c.starts_on} – {c.ends_on}
-                        </small>
-                      </div>
-                      <button
-                        className="secondary"
-                        disabled={busy}
-                        onClick={() => viewContract(c, setError, setBusy)}
-                      >
-                        Xem hợp đồng
-                      </button>
-                    </div>
-                  ))}
-                {!data.contractTenants.some(
-                  (l) => l.tenant_id === tenant.id,
-                ) && (
-                  <p className="form-hint">
-                    Chưa có hợp đồng được gán cho hồ sơ này.
-                  </p>
-                )}
-                <h3 className="history-title">
-                  Hóa đơn & thanh toán của người thuê
-                </h3>
-                <p className="form-hint">
-                  Hóa đơn chung có một công nợ và lịch sử thanh toán dùng chung
-                  cho các người thuê liên quan.
-                </p>
-                {data.invoices
-                  .filter((i) =>
-                    data.invoiceTenants.some(
-                      (l) => l.invoice_id === i.id && l.tenant_id === tenant.id,
-                    ),
-                  )
-                  .sort((a, b) => b.period.localeCompare(a.period))
-                  .map((i) => (
-                    <div className="tenant-invoice-history" key={i.id}>
-                      <div>
-                        <b>
-                          Kỳ {i.period.slice(0, 7)} · {money(i.total)}
-                        </b>
-                        <small>
-                          Còn phải thu: {money(balance(i, data.payments))}
-                        </small>
-                      </div>
-                      <button
-                        className="text-button"
-                        onClick={() => {
-                          setInvoice(i);
-                          setModal("invoice-detail");
-                        }}
-                      >
-                        Xem hóa đơn
-                      </button>
-                      {canWrite && balance(i, data.payments) > 0 && (
-                        <button
-                          className="text-button"
-                          onClick={() => {
-                            setInvoice(i);
-                            setModal("payment");
-                          }}
-                        >
-                          Thu tiền
-                        </button>
-                      )}
-                    </div>
-                  ))}
-                {!data.invoiceTenants.some(
-                  (l) => l.tenant_id === tenant.id,
-                ) && (
-                  <p className="form-hint">
-                    Chưa có hóa đơn được gán cho hồ sơ này.
-                  </p>
+                {page !== "room" && (
+                  <>
+                    {!data.operationsMigrationRequired && (
+                      <Deposits
+                        data={data}
+                        tenantId={tenant.id}
+                        org={org}
+                        canWrite={canWrite}
+                        onChanged={refresh}
+                      />
+                    )}
+                    <h3 className="history-title">Hợp đồng của người thuê</h3>
+                    <TenancySummary data={data} tenants={[tenant]} />
+                    {data.contracts
+                      .filter((c) =>
+                        data.contractTenants.some(
+                          (l) =>
+                            l.contract_id === c.id && l.tenant_id === tenant.id,
+                        ),
+                      )
+                      .map((c) => (
+                        <div className="contract" key={c.id}>
+                          <FileText size={20} />
+                          <div>
+                            <b>{c.file_name}</b>
+                            <small>
+                              {c.starts_on} – {c.ends_on}
+                            </small>
+                          </div>
+                          <button
+                            className="secondary"
+                            disabled={busy}
+                            onClick={() => viewContract(c, setError, setBusy)}
+                          >
+                            Xem hợp đồng
+                          </button>
+                        </div>
+                      ))}
+                    {!data.contractTenants.some(
+                      (l) => l.tenant_id === tenant.id,
+                    ) && (
+                      <p className="form-hint">
+                        Chưa có hợp đồng được gán cho hồ sơ này.
+                      </p>
+                    )}
+                    <h3 className="history-title">
+                      Hóa đơn & thanh toán của người thuê
+                    </h3>
+                    <p className="form-hint">
+                      Hóa đơn chung có một công nợ và lịch sử thanh toán dùng
+                      chung cho các người thuê liên quan.
+                    </p>
+                    {data.invoices
+                      .filter((i) =>
+                        data.invoiceTenants.some(
+                          (l) =>
+                            l.invoice_id === i.id && l.tenant_id === tenant.id,
+                        ),
+                      )
+                      .sort((a, b) => b.period.localeCompare(a.period))
+                      .map((i) => (
+                        <div className="tenant-invoice-history" key={i.id}>
+                          <div>
+                            <b>
+                              Kỳ {i.period.slice(0, 7)} · {money(i.total)}
+                            </b>
+                            <small>
+                              Còn phải thu: {money(balance(i, data.payments))}
+                            </small>
+                          </div>
+                          <button
+                            className="text-button"
+                            onClick={() => {
+                              setInvoice(i);
+                              setModal("invoice-detail");
+                            }}
+                          >
+                            Xem hóa đơn
+                          </button>
+                          {canWrite && balance(i, data.payments) > 0 && (
+                            <button
+                              className="text-button"
+                              onClick={() => {
+                                setInvoice(i);
+                                setModal("payment");
+                              }}
+                            >
+                              Thu tiền
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                    {!data.invoiceTenants.some(
+                      (l) => l.tenant_id === tenant.id,
+                    ) && (
+                      <p className="form-hint">
+                        Chưa có hóa đơn được gán cho hồ sơ này.
+                      </p>
+                    )}
+                  </>
                 )}
                 {canWrite && (
                   <>

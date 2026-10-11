@@ -2863,3 +2863,15 @@ header {
     gap: 12px;
   }
 }
+
+.room-tenant-deposit {
+  padding: 0 24px 20px;
+}
+.room-tenant-deposit > h3 {
+  margin-bottom: 8px;
+}
+@media (max-width: 480px) {
+  .room-tenant-deposit {
+    padding: 0 16px 16px;
+  }
+}

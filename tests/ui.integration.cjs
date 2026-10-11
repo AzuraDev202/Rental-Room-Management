@@ -1486,6 +1486,30 @@ const uid = "00000000-0000-0000-0000-000000000001",
   // Record and settle deposit without adding it to rental revenue.
   await openWaterRoom();
   await page.locator(".tenant-row").filter({ hasText: "Water Tenant" }).click();
+  const tenantDialog = page.getByRole("dialog");
+  assert.equal(
+    await tenantDialog.getByText("CCCD", { exact: true }).count(),
+    1,
+  );
+  assert.equal(
+    await tenantDialog
+      .getByRole("button", { name: "Ghi nhận đặt cọc", exact: true })
+      .count(),
+    0,
+  );
+  assert.equal(
+    await tenantDialog
+      .getByText("Hợp đồng của người thuê", { exact: true })
+      .count(),
+    0,
+  );
+  assert.equal(
+    await tenantDialog
+      .getByText("Hóa đơn & thanh toán của người thuê", { exact: true })
+      .count(),
+    0,
+  );
+  await page.getByRole("button", { name: "Đóng", exact: true }).click();
   await page
     .getByRole("button", { name: "Ghi nhận đặt cọc", exact: true })
     .click();
@@ -1506,7 +1530,6 @@ const uid = "00000000-0000-0000-0000-000000000001",
     ),
     1000000,
   );
-  await page.getByRole("button", { name: "Đóng", exact: true }).click();
   await page.getByRole("button", { name: "Bảo trì", exact: true }).click();
   await page.getByRole("button", { name: "Thêm sự cố", exact: true }).click();
   await page
