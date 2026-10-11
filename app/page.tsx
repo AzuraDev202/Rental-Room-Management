@@ -1722,6 +1722,21 @@ function Workspace({ session }: { session: Session }) {
               )}
               {page === "settings" && (
                 <>
+                  <section className="panel" aria-label="Tài khoản">
+                    <div className="panel-heading">
+                      <div>
+                        <h2>Tài khoản</h2>
+                        <p>{session.user.email}</p>
+                      </div>
+                      <button
+                        className="secondary"
+                        disabled={busy}
+                        onClick={logout}
+                      >
+                        <LogOut size={17} /> Đăng xuất
+                      </button>
+                    </div>
+                  </section>
                   <ThemeSwitch />
                   {currentProperties.length > 0 && (
                     <RatesDirectory
