@@ -206,10 +206,7 @@ export function RoomLeaseEditor({
   const held = data.deposits
     .filter((d) => ids.has(d.tenant_id))
     .reduce((sum, d) => sum + (d.kind === "receive" ? d.amount : -d.amount), 0);
-  const room = data.rooms.find((r) => r.id === cycle.room_id);
-  const perPerson =
-    data.rates.find((r) => r.property_id === room?.property_id)?.water_mode ===
-    "person";
+  const perPerson = true;
   const locked = data.invoices.some((i) => i.billing_cycle_id === cycle.id);
   const fallbackEnd = data.contracts
     .filter((c) =>

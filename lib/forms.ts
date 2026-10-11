@@ -53,7 +53,7 @@ export const tenantSchema = z
 export const ratesSchema = z.object({
   electricity: amount,
   water: amount,
-  water_mode: z.enum(["meter", "person"]).default("meter"),
+  water_mode: z.literal("person").default("person"),
   trash: amount,
   wifi: amount,
   laundry: amount,

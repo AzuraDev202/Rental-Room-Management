@@ -30,4 +30,4 @@ Dừng server test sau khi hoàn thành, bỏ các biến test và build lại c
 
 Kiểm tra app cài trên điện thoại: chạy `npm run build` và `npm run start` (cổng 3000), rồi `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium npm run test:pwa`. Kiểm tra manifest, icon, service worker, cache chỉ có thông báo mất mạng, chuyển offline và kết nối lại. `test:ui` kiểm tra dữ liệu thật mô phỏng qua PostgreSQL ở bảy kích thước màn hình, kể cả form/dialog và chế độ ngang. Chưa thay thế kiểm thử thiết bị Safari/iOS thực.
 
-Kiểm tra hóa đơn mới (migration 001–013): `HH_TEST_ADVANCE=1 PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium npm run test:ui` với dev server test cổng 3001. Kiểm tra hóa đơn nhận phòng chia ngày, không nhập chỉ số, hóa đơn tháng thu trước phí cố định, điện tháng trước, bố cục mobile và tổng tiền được lưu trên PostgreSQL.
+Kiểm tra hóa đơn mới (migration 001–014): `HH_TEST_ADVANCE=1 PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium npm run test:ui` với dev server test cổng 3001. Kiểm tra hóa đơn nhận phòng chia ngày, không nhập chỉ số, hóa đơn tháng thu trước phí cố định, điện tháng trước, bố cục mobile và tổng tiền được lưu trên PostgreSQL.

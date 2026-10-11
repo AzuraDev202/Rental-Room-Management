@@ -27,7 +27,8 @@ export function AdvanceInvoiceForm({
   onSubmit: (v: Record<string, unknown>) => Promise<void>;
 }) {
   const arrival = baseline.starts_on.slice(0, 7) === period;
-  const perPerson = rates.water_mode === "person";
+  const perPerson = true;
+  rates = { ...rates, water_mode: "person" };
   const eOld = previous?.electricity_new ?? baseline.electricity_initial ?? 0;
   const wOld =
     previous?.water_mode === "person" && !perPerson

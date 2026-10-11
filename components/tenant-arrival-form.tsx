@@ -17,13 +17,8 @@ export function TenantArrivalForm({
 }) {
   const [selectedRoom, setSelectedRoom] = useState(roomId),
     [day, setDay] = useState(localDay());
-  const needsWater = (id: string) =>
-    data.rates.find(
-      (rate) =>
-        rate.property_id ===
-        data.rooms.find((room) => room.id === id)?.property_id,
-    )?.water_mode !== "person";
-  const meteredWater = needsWater(selectedRoom);
+  const needsWater = () => false;
+  const meteredWater = false;
   const scheduled = day > localDay();
   const vacant = !!selectedRoom && !roomOccupiedOn(data, selectedRoom, day);
   return (

@@ -22,6 +22,13 @@ export function databaseError(error: {
     return new Error(
       "Cần chạy toàn bộ SQL trong migration 202610080013_advance_fixed_fees.sql sau migration 012 để lập hóa đơn theo cách tính mới.",
     );
+  if (
+    error.code === "PGRST202" &&
+    error.message.includes("create_person_water_invoice")
+  )
+    return new Error(
+      "Cần chạy toàn bộ SQL trong migration 202610080014_water_person_only.sql sau migration 013 để lập hóa đơn nước theo người.",
+    );
   if (error.code === "23505")
     return new Error("Thông tin đã tồn tại (tên, CCCD hoặc kỳ hóa đơn).");
   if (error.code === "23503")

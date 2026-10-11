@@ -80,6 +80,7 @@ const uid = "00000000-0000-0000-0000-000000000001",
       "011_monthly_billing_schedule",
       "012_edit_room_lease",
       "013_advance_fixed_fees",
+      "014_water_person_only",
     ])
       await db.exec(
         fs.readFileSync(

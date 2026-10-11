@@ -102,15 +102,7 @@ const roleNames: Record<Role, string> = {
 };
 const rateFields: Field[] = [
   { name: "electricity", label: "Điện (₫/kWh)", type: "number", min: 0 },
-  {
-    name: "water_mode",
-    label: "Cách tính nước",
-    options: [
-      { value: "meter", label: "Theo m³" },
-      { value: "person", label: "Theo người/tháng" },
-    ],
-  },
-  { name: "water", label: "Nước (₫/m³)", type: "number", min: 0 },
+  { name: "water", label: "Nước (đ/người/tháng)", type: "number", min: 0 },
   { name: "service", label: "Dịch vụ (đ/phòng/tháng)", type: "number", min: 0 },
   {
     name: "laundry",
@@ -447,8 +439,11 @@ function Workspace({ session }: { session: Session }) {
     revenueSeries(period.slice(0, 4), data.invoices, data.payments, roomIds)[
       Number(period.slice(5)) - 1
     ]?.revenue || 0;
-  const roomRates = room
+  const storedRoomRates = room
     ? data.rates.find((r) => r.property_id === room.property_id)
+    : undefined;
+  const roomRates = storedRoomRates
+    ? { ...storedRoomRates, water_mode: "person" as const }
     : undefined;
   const roomCycles = room
     ? data.billingCycles
@@ -1485,7 +1480,7 @@ function Workspace({ session }: { session: Session }) {
                         onSubmit={(v) =>
                           save(
                             () =>
-                              rpc("create_advance_invoice", {
+                              rpc("create_person_water_invoice", {
                                 org,
                                 target_room: room.id,
                                 target_cycle: billingCycle!.id,
@@ -2954,23 +2949,9 @@ function PropertyRates({
   canWrite: boolean;
   onSave: (v: Record<string, unknown>) => Promise<void>;
 }) {
-  const [waterMode, setWaterMode] = useState(rates?.water_mode || "meter");
-  useEffect(
-    () => setWaterMode(rates?.water_mode || "meter"),
-    [rates?.water_mode],
-  );
-  const fields = rateFields.map((field) =>
-    field.name === "water" && waterMode === "person"
-      ? { ...field, label: "Nước (đ/người/tháng)" }
-      : field,
-  );
+  const fields = rateFields;
   return (
     <section
-      onChange={(event) => {
-        const input = event.target as HTMLInputElement;
-        if (input.name === "water_mode")
-          setWaterMode(input.value as "meter" | "person");
-      }}
       className="panel settings property-rates"
       aria-label={"Đơn giá dịch vụ · " + property.name}
     >
@@ -2991,14 +2972,14 @@ function PropertyRates({
               ? {
                   electricity: rates.electricity,
                   water: rates.water,
-                  water_mode: rates.water_mode || "meter",
+                  water_mode: "person",
                   service: rates.trash + rates.wifi,
                   laundry: rates.laundry,
                 }
               : {
                   electricity: "",
                   water: "",
-                  water_mode: "meter",
+                  water_mode: "person",
                   service: "",
                   laundry: "",
                 }
@@ -3014,15 +2995,11 @@ function PropertyRates({
             <div key={f.name}>
               <span>{f.label}</span>
               <b>
-                {f.name === "water_mode"
-                  ? waterMode === "person"
-                    ? "Theo người/tháng"
-                    : "Theo m³"
-                  : money(
-                      f.name === "service"
-                        ? rates.trash + rates.wifi
-                        : Number(rates[f.name as keyof Rates]),
-                    )}
+                {money(
+                  f.name === "service"
+                    ? rates.trash + rates.wifi
+                    : Number(rates[f.name as keyof Rates]),
+                )}
               </b>
             </div>
           ))}

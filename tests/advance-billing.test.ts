@@ -187,6 +187,64 @@ test("advance fixed fees and prorated arrival bills", async () => {
       ),
       2640,
     );
+    const history = (
+      await db.query(
+        "select id,total,water_mode,water_fee from invoices order by id",
+      )
+    ).rows;
+    await db.exec("reset role");
+    await db.exec(
+      readFileSync(
+        "supabase/migrations/202610080014_water_person_only.sql",
+        "utf8",
+      ),
+    );
+    assert.deepEqual(
+      (
+        await db.query(
+          "select id,total,water_mode,water_fee from invoices order by id",
+        )
+      ).rows,
+      history,
+    );
+    await actor(owner);
+    assert.equal(
+      (
+        await db.query<{ water_mode: string }>(
+          "select water_mode from property_service_rates where property_id=$1",
+          [prop2],
+        )
+      ).rows[0].water_mode,
+      "person",
+    );
+    await assert.rejects(
+      db.query(
+        "update property_service_rates set water_mode='meter' where property_id=$1",
+        [prop2],
+      ),
+      /water_person_only/,
+    );
+    await db.query(
+      "update property_service_rates set water=310 where property_id=$1",
+      [prop2],
+    );
+    await db.query(
+      "select create_person_water_invoice($1,$2,$3,'2020-02-01','2020-02-05',200,205,300,300)",
+      [org, room2, cycle2],
+    );
+    const flat = (
+      await db.query<{
+        water_mode: string;
+        water_fee: string;
+        water_new: number;
+      }>(
+        "select water_mode,water_fee,water_new from invoices where room_id=$1 and period='2020-02-01'",
+        [room2],
+      )
+    ).rows[0];
+    assert.equal(flat.water_mode, "person");
+    assert.equal(Number(flat.water_fee), 310);
+    assert.equal(flat.water_new, 300);
   } finally {
     await db.close();
   }
