@@ -4,6 +4,7 @@ import {
   localDay,
   revenueSeries,
   tenantStatus,
+  nextMonth,
 } from "./business";
 import type { Data } from "./types";
 export const depositLabels = {
@@ -72,7 +73,7 @@ export function billingToPrepare(data: Data, day = localDay()) {
           t.room_id === r.id &&
           tenantStatus(t, day) === "Đang ở" &&
           (data.billingCycles.find((c) => c.id === t.billing_cycle_id)
-            ?.starts_on || t.move_in) < period,
+            ?.starts_on || t.move_in) < nextMonth(period),
       ) &&
       !data.invoices.some(
         (i) =>

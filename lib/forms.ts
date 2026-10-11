@@ -134,9 +134,9 @@ export const invoiceSchema = z
     path: ["water_new"],
     message: "Chỉ số mới phải lớn hơn hoặc bằng chỉ số cũ",
   })
-  .refine((v) => v.due_date === v.period + "-05", {
+  .refine((v) => v.due_date >= v.period + "-05", {
     path: ["due_date"],
-    message: "Hạn thu tiền phải là ngày 5 của tháng lập hóa đơn",
+    message: "Hạn thu tiền không được trước ngày 5 của tháng lập hóa đơn",
   });
 export const paymentSchema = z.object({
   amount: amount.refine((v) => v > 0, "Số tiền phải lớn hơn 0"),

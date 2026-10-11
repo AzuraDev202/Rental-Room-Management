@@ -162,12 +162,30 @@ test("monthly billing: advance rent and previous-month services", async () => {
       bill("2020-04-01", "2020-04-05", 120, 121),
       /không có người/,
     );
+    const legacyRows = (
+      await db.query(
+        "select id,total,laundry_fee,water_fee,room_rent from invoices order by id",
+      )
+    ).rows;
+    await db.exec("reset role");
+    for (const file of ["012_edit_room_lease", "013_advance_fixed_fees"])
+      await db.exec(
+        readFileSync(`supabase/migrations/202610080${file}.sql`, "utf8"),
+      );
+    assert.deepEqual(
+      (
+        await db.query(
+          "select id,total,laundry_fee,water_fee,room_rent from invoices order by id",
+        )
+      ).rows,
+      legacyRows,
+    );
   } finally {
     await db.close();
   }
 });
 
-test("new-room reminders start next month; January services belong to December", async () => {
+test("new-room reminders include the arrival month; January services belong to December", async () => {
   const { previousMonth } = await import("../lib/business");
   const { billingToPrepare } = await import("../lib/operations");
   assert.equal(previousMonth("2026-01"), "2025-12");
@@ -186,6 +204,6 @@ test("new-room reminders start next month; January services belong to December",
     ],
     billingCycles: [{ id: "c", room_id: "r", starts_on: "2026-10-10" }],
   } as Data;
-  assert.equal(billingToPrepare(data, "2026-10-11").length, 0);
+  assert.equal(billingToPrepare(data, "2026-10-11").length, 1);
   assert.equal(billingToPrepare(data, "2026-11-01").length, 1);
 });

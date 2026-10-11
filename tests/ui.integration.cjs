@@ -75,6 +75,18 @@ const uid = "00000000-0000-0000-0000-000000000001",
         "utf8",
       ),
     );
+  if (process.env.HH_TEST_ADVANCE)
+    for (const name of [
+      "011_monthly_billing_schedule",
+      "012_edit_room_lease",
+      "013_advance_fixed_fees",
+    ])
+      await db.exec(
+        fs.readFileSync(
+          root + "/supabase/migrations/202610080" + name + ".sql",
+          "utf8",
+        ),
+      );
   const browser = await chromium.launch({
     headless: true,
     ...(process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH
@@ -343,6 +355,151 @@ const uid = "00000000-0000-0000-0000-000000000001",
     .click();
   await page.getByRole("heading", { name: "Chưa có căn hộ" }).waitFor();
   console.log("Workspace initialized");
+  if (process.env.HH_TEST_ADVANCE) {
+    const today = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Asia/Ho_Chi_Minh",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).format(new Date());
+    const period = today.slice(0, 7),
+      monthStart = period + "-01",
+      next = new Date(monthStart + "T00:00:00Z");
+    next.setUTCMonth(next.getUTCMonth() + 1);
+    const monthDays = Math.round((next - Date.parse(monthStart)) / 86400000),
+      arrivalDays = Math.round((next - Date.parse(today)) / 86400000);
+    const prev = new Date(monthStart + "T00:00:00Z");
+    prev.setUTCMonth(prev.getUTCMonth() - 1);
+    const prior = prev.toISOString().slice(0, 10);
+    const org = (
+      await db.query("select id from organizations where name='HH HOME test'")
+    ).rows[0].id;
+    const prop = (
+      await db.query(
+        "select create_property($1,'Advance Building','Advance Address',0,2) as id",
+        [org],
+      )
+    ).rows[0].id;
+    const rooms = (
+      await db.query(
+        "select id,name from rooms where property_id=$1 order by name",
+        [prop],
+      )
+    ).rows;
+    await db.query("update rooms set monthly_rent=3100 where property_id=$1", [
+      prop,
+    ]);
+    await db.query(
+      "insert into property_service_rates(organization_id,property_id,electricity,water,trash,wifi,laundry,water_mode) values($1,$2,10,310,310,0,310,'person')",
+      [org, prop],
+    );
+    for (const [index, date] of [
+      [0, today],
+      [1, prior],
+    ])
+      await db.query(
+        "insert into tenants(organization_id,room_id,full_name,gender,birth_date,identity_number,phone,move_in,electricity_initial) values($1,$2,$3,'Nam','1990-01-01',$4,'0901234567',$5,100)",
+        [
+          org,
+          rooms[index].id,
+          "Advance Tenant " + index,
+          "12345678901" + index,
+          date,
+        ],
+      );
+    await page.reload({ waitUntil: "networkidle" });
+    await page.getByRole("button", { name: /^Căn hộ/ }).click();
+    await page
+      .getByRole("button", { name: /Advance Building Advance Address/ })
+      .click();
+    await page.getByRole("button", { name: /Phòng 1 1 người đang ở/ }).click();
+    assert.equal(await page.getByLabel(/Điện · chỉ số mới/).count(), 0);
+    assert.equal(await page.getByLabel(/Nước · chỉ số mới/).count(), 0);
+    await page.getByText(/Hóa đơn nhận phòng từ/).waitFor();
+    const firstTotal =
+      Math.round((3100 * arrivalDays) / monthDays) +
+      3 * Math.round((310 * arrivalDays) / monthDays);
+    await page
+      .locator(".bill-total")
+      .getByText(new Intl.NumberFormat("vi-VN").format(firstTotal) + " ₫", {
+        exact: true,
+      })
+      .waitFor();
+    await page
+      .getByRole("button", { name: "Sửa thông tin hợp đồng", exact: true })
+      .click();
+    assert.equal(
+      await page.getByLabel("Số nước ban đầu (m³)", { exact: true }).count(),
+      0,
+    );
+    assert.equal(
+      await page.getByLabel("Số điện ban đầu (kWh)", { exact: true }).count(),
+      1,
+    );
+    assert.equal(
+      await page
+        .getByRole("button", { name: "Sửa chỉ số ban đầu", exact: true })
+        .count(),
+      0,
+    );
+    await page.getByRole("button", { name: "Hủy sửa", exact: true }).click();
+    for (const width of [320, 390, 430]) {
+      await page.setViewportSize({ width, height: 844 });
+      assert.equal(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth > innerWidth,
+        ),
+        false,
+      );
+    }
+    await page.setViewportSize({ width: 1440, height: 1000 });
+    await page
+      .getByRole("button", { name: "Lập hóa đơn", exact: true })
+      .click();
+    await page.getByText("Đã lập hóa đơn", { exact: true }).waitFor();
+    const stored = (
+      await db.query("select total,due_date from invoices where room_id=$1", [
+        rooms[0].id,
+      ])
+    ).rows[0];
+    assert.equal(Number(stored.total), firstTotal);
+    assert.equal(
+      new Date(stored.due_date).toISOString().slice(0, 10),
+      today > period + "-05" ? today : period + "-05",
+    );
+    await page.getByRole("button", { name: /^Căn hộ/ }).click();
+    await page
+      .getByRole("button", { name: /Advance Building Advance Address/ })
+      .click();
+    await page.getByRole("button", { name: /Phòng 2 1 người đang ở/ }).click();
+    await page.getByLabel(/Điện · chỉ số mới/).fill("110");
+    await page
+      .locator(".bill-total")
+      .getByText("4.130 ₫", { exact: true })
+      .waitFor();
+    await page
+      .getByRole("button", { name: "Lập hóa đơn", exact: true })
+      .click();
+    await page.getByText("Đã lập hóa đơn", { exact: true }).waitFor();
+    assert.equal(
+      Number(
+        (
+          await db.query("select total from invoices where room_id=$1", [
+            rooms[1].id,
+          ])
+        ).rows[0].total,
+      ),
+      4130,
+    );
+    assert.equal(errors.length, 0);
+    console.log(
+      "PASS: prorated arrival bill has no meter inputs, water per-person and contract-only baseline editor, regular advance fixed fees plus previous-month electricity, mobile layouts and persisted totals",
+    );
+    await browser.close();
+    await db.close();
+    return;
+  }
+
   assert.equal(
     await page
       .getByRole("button", { name: "Thêm căn hộ", exact: true })

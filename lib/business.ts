@@ -61,6 +61,82 @@ export function calculateBill(
   if (!Number.isSafeInteger(total)) throw new Error("Số tiền vượt giới hạn");
   return total;
 }
+export function fixedFeeAllocation(
+  period: string,
+  startsOn: string,
+  tenants: Tenant[],
+  day = localDay(),
+) {
+  const first = period.slice(0, 7) + "-01";
+  const next = nextMonth(period);
+  const daysBetween = (a: string, b: string) =>
+    Math.round((Date.parse(b) - Date.parse(a)) / 86400000);
+  const monthDays = daysBetween(first, next);
+  const residents = tenants.filter(
+    (t) =>
+      t.move_in < next &&
+      t.move_in <= day &&
+      (!t.move_out || (t.move_out > first && t.move_out > t.move_in)),
+  );
+  const personDays = residents.reduce(
+    (sum, t) =>
+      sum +
+      Math.max(
+        0,
+        daysBetween(
+          t.move_in > first ? t.move_in : first,
+          t.move_out && t.move_out < next ? t.move_out : next,
+        ),
+      ),
+    0,
+  );
+  const roomDays = residents.length
+    ? daysBetween(startsOn > first ? startsOn : first, next)
+    : 0;
+  return { monthDays, personDays, roomDays, people: residents.length };
+}
+export function advanceBill(
+  rent: number,
+  rates: Rates,
+  allocation: ReturnType<typeof fixedFeeAllocation>,
+  eOld: number,
+  eNew: number,
+  wOld: number,
+  wNew: number,
+  arrival = false,
+) {
+  calculateBill(
+    0,
+    { ...rates, trash: 0, wifi: 0, laundry: 0, water_mode: "meter" },
+    eOld,
+    eNew,
+    wOld,
+    wNew,
+    0,
+  );
+  const roundRoom = (rate: number) =>
+    Math.round((rate * allocation.roomDays) / allocation.monthDays);
+  const roundPeople = (rate: number) =>
+    Math.round((rate * allocation.personDays) / allocation.monthDays);
+  const room = roundRoom(rent),
+    service = roundRoom(rates.trash) + roundRoom(rates.wifi),
+    laundry = roundPeople(rates.laundry);
+  const electricity = arrival ? 0 : (eNew - eOld) * rates.electricity;
+  const water =
+    rates.water_mode === "person"
+      ? roundPeople(rates.water)
+      : arrival
+        ? 0
+        : (wNew - wOld) * rates.water;
+  return {
+    room,
+    service,
+    laundry,
+    electricity,
+    water,
+    total: room + service + laundry + electricity + water,
+  };
+}
 export function revenueSeries(
   year: string,
   invoices: Invoice[],

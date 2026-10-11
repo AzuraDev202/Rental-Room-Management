@@ -15,6 +15,13 @@ export function databaseError(error: {
     return new Error(
       "Cần chạy toàn bộ SQL trong migration 202610080012_edit_room_lease.sql sau migration 011 để sửa thông tin thuê phòng.",
     );
+  if (
+    error.code === "PGRST202" &&
+    error.message.includes("create_advance_invoice")
+  )
+    return new Error(
+      "Cần chạy toàn bộ SQL trong migration 202610080013_advance_fixed_fees.sql sau migration 012 để lập hóa đơn theo cách tính mới.",
+    );
   if (error.code === "23505")
     return new Error("Thông tin đã tồn tại (tên, CCCD hoặc kỳ hóa đơn).");
   if (error.code === "23503")

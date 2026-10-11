@@ -51,6 +51,11 @@ export type Rates = {
 };
 export type Invoice = {
   service_period?: string | null;
+  fixed_period?: string | null;
+  fixed_room_days?: number | null;
+  fixed_person_days?: number | null;
+  fixed_month_days?: number | null;
+  arrival_bill?: boolean;
   billing_cycle_id: string | null;
   id: string;
   organization_id: string;

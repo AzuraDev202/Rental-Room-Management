@@ -1,5 +1,6 @@
 "use client";
 import { z } from "zod";
+import { AdvanceInvoiceForm as InvoiceForm } from "../components/advance-invoice-form";
 import { Deposits } from "../components/deposits";
 import { RoomLeaseSummary } from "../components/tenancy-summary";
 import {
@@ -73,7 +74,6 @@ import {
   balance,
   currentMonth,
   localDay,
-  calculateBill,
   tenantStatus,
   nextMonth,
   previousMonth,
@@ -455,7 +455,8 @@ function Workspace({ session }: { session: Session }) {
         .filter(
           (c) =>
             c.room_id === room.id &&
-            c.starts_on < period + "-01" &&
+            c.starts_on < nextMonth(period) &&
+            c.starts_on <= localDay() &&
             data.tenants.some(
               (t) =>
                 t.billing_cycle_id === c.id &&
@@ -1346,9 +1347,10 @@ function Workspace({ session }: { session: Session }) {
                       <div>
                         <h2>Lập hóa đơn</h2>
                         <p>
-                          Thu tiền phòng tháng {period} và chi phí tháng{" "}
-                          {previousMonth(period)}. Phòng mới không lập hóa đơn
-                          tháng vào ở.
+                          Thu tiền phòng và phí cố định tháng {period},
+                          điện/nước theo chỉ số tháng {previousMonth(period)}.
+                          Phòng mới tính theo số ngày từ lúc vào ở đến cuối
+                          tháng.
                         </p>
                       </div>
                       <ReceiptText size={19} />
@@ -1475,36 +1477,15 @@ function Workspace({ session }: { session: Session }) {
                         period={period}
                         previous={previous || null}
                         baseline={billingCycle}
-                        room={{
-                          ...room,
-                          monthly_rent: data.tenants.some(
-                            (t) =>
-                              t.billing_cycle_id === billingCycle.id &&
-                              t.move_in < nextMonth(period) &&
-                              (!t.move_out ||
-                                (t.move_out > period + "-01" &&
-                                  t.move_out > t.move_in)),
-                          )
-                            ? room.monthly_rent
-                            : 0,
-                        }}
+                        room={room}
                         rates={roomRates}
-                        laundryPeople={
-                          data.tenants.filter(
-                            (t) =>
-                              t.room_id === room.id &&
-                              t.billing_cycle_id === billingCycle.id &&
-                              t.move_in < period + "-01" &&
-                              t.move_in <= localDay() &&
-                              (!t.move_out ||
-                                (t.move_out > previousMonth(period) + "-01" &&
-                                  t.move_out > t.move_in)),
-                          ).length
-                        }
+                        tenants={data.tenants.filter(
+                          (t) => t.billing_cycle_id === billingCycle.id,
+                        )}
                         onSubmit={(v) =>
                           save(
                             () =>
-                              rpc("create_monthly_invoice", {
+                              rpc("create_advance_invoice", {
                                 org,
                                 target_room: room.id,
                                 target_cycle: billingCycle!.id,
@@ -1536,7 +1517,7 @@ function Workspace({ session }: { session: Session }) {
                         }
                         detail={
                           !billingCycle
-                            ? "Phòng mới bắt đầu lập hóa đơn từ tháng sau tháng vào ở. Chọn kỳ phù hợp để tiếp tục."
+                            ? "Chọn kỳ có người ở và đã đến ngày nhận phòng."
                             : billingCycle.electricity_initial === null &&
                                 !previous
                               ? "Ghi mốc điện/nước trước khi lập hóa đơn đầu tiên của đợt thuê."
@@ -2427,6 +2408,17 @@ function Workspace({ session }: { session: Session }) {
                     }
                   </p>
                 )}
+                {invoice.fixed_period && (
+                  <p className="form-hint">
+                    Tiền phòng và phí cố định tháng{" "}
+                    {invoice.fixed_period.slice(0, 7)}:{" "}
+                    {invoice.fixed_room_days}/{invoice.fixed_month_days} ngày;{" "}
+                    {invoice.fixed_person_days} ngày-người.{" "}
+                    {invoice.arrival_bill
+                      ? "Hóa đơn nhận phòng chưa thu điện/nước theo chỉ số."
+                      : `Điện/nước theo chỉ số tháng ${invoice.service_period?.slice(0, 7)}.`}
+                  </p>
+                )}
                 <div className="detail-list">
                   {[
                     ["Tiền phòng", money(invoice.room_rent)],
@@ -2437,14 +2429,18 @@ function Workspace({ session }: { session: Session }) {
                     [
                       "Nước",
                       invoice.water_mode === "person"
-                        ? `${invoice.water_count} người × ${money(invoice.water_unit_rate || 0)} = ${money(invoice.water_fee || 0)}`
+                        ? invoice.fixed_period
+                          ? `${invoice.fixed_person_days} ngày-người / ${invoice.fixed_month_days} ngày × ${money(invoice.water_unit_rate || 0)} = ${money(invoice.water_fee || 0)}`
+                          : `${invoice.water_count} người × ${money(invoice.water_unit_rate || 0)} = ${money(invoice.water_fee || 0)}`
                         : `${invoice.water_new - invoice.water_old} m³ × ${money(invoice.water_rate)}`,
                     ],
                     ["Dịch vụ", money(invoice.trash_fee + invoice.wifi_fee)],
                     [
-                      invoice.laundry_count != null
-                        ? `Máy giặt · ${invoice.laundry_count} người × ${money(invoice.laundry_rate || 0)}`
-                        : "Máy giặt",
+                      invoice.fixed_period
+                        ? `Máy giặt · ${invoice.fixed_person_days} ngày-người / ${invoice.fixed_month_days} ngày × ${money(invoice.laundry_rate || 0)}`
+                        : invoice.laundry_count != null
+                          ? `Máy giặt · ${invoice.laundry_count} người × ${money(invoice.laundry_rate || 0)}`
+                          : "Máy giặt",
                       money(invoice.laundry_fee),
                     ],
                     ["Tổng hóa đơn", money(invoice.total)],
@@ -2452,7 +2448,11 @@ function Workspace({ session }: { session: Session }) {
                     ["Tháng tiền phòng", invoice.period.slice(0, 7)],
                     [
                       "Tháng chi phí dịch vụ",
-                      (invoice.service_period || invoice.period).slice(0, 7),
+                      (
+                        invoice.fixed_period ||
+                        invoice.service_period ||
+                        invoice.period
+                      ).slice(0, 7),
                     ],
                     ["Hạn thanh toán", invoice.due_date],
                   ].map(([k, v]) => (
@@ -2691,188 +2691,6 @@ function Invoices({
     />
   );
 }
-function InvoiceForm({
-  baseline,
-  period,
-  previous,
-  room,
-  rates,
-  laundryPeople,
-  onSubmit,
-}: {
-  period: string;
-  previous: Invoice | null;
-  baseline: BillingCycle;
-  laundryPeople: number;
-  room: Room;
-  rates: Rates;
-  onSubmit: (v: Record<string, unknown>) => Promise<void>;
-}) {
-  const eOld = previous?.electricity_new ?? baseline.electricity_initial ?? 0;
-  const perPersonWater = rates.water_mode === "person";
-  const wOld =
-    previous?.water_mode === "person" && !perPersonWater
-      ? (baseline.water_initial ?? 0)
-      : (previous?.water_new ?? baseline.water_initial ?? 0);
-  const deadline = period + "-05";
-  const [readings, setReadings] = useState<{
-    electricity: number;
-    water: number;
-  } | null>(null);
-  const [preview, setPreview] = useState<number | null>(null);
-  return (
-    <div
-      onInput={(event) => {
-        const form = (event.target as HTMLElement).closest("form");
-        if (!form) return;
-        const values = new FormData(form);
-        const e = values.get("electricity_new"),
-          w = perPersonWater ? String(wOld) : values.get("water_new");
-        try {
-          if (e === null || e === "" || w === null || w === "")
-            throw new Error();
-          const electricity = Number(e),
-            water = Number(w);
-          const total = calculateBill(
-            room.monthly_rent,
-            rates,
-            eOld,
-            electricity,
-            wOld,
-            water,
-            laundryPeople,
-          );
-          setReadings({ electricity, water });
-          setPreview(total);
-        } catch {
-          setReadings(null);
-          setPreview(null);
-        }
-      }}
-    >
-      <DataForm
-        schema={invoiceSchema}
-        fields={[
-          {
-            name: "electricity_new",
-            label: `Điện · chỉ số mới (${money(rates.electricity)}/kWh)`,
-            type: "number",
-            min: eOld,
-          },
-          {
-            name: "water_new",
-            label: `Nước · chỉ số mới (${money(rates.water)}/m³)`,
-            type: "number",
-            min: wOld,
-          },
-        ].filter((field) => field.name !== "water_new" || !perPersonWater)}
-        defaults={{
-          period,
-          due_date: deadline,
-          electricity_old: eOld,
-          water_old: wOld,
-          electricity_new: "",
-          water_new: perPersonWater ? wOld : "",
-        }}
-        submit="Lập hóa đơn"
-        onSubmit={(values) =>
-          onSubmit({
-            ...values,
-            period,
-            due_date: deadline,
-            electricity_old: eOld,
-            water_old: wOld,
-          })
-        }
-      >
-        <div className="bill-line">
-          Điện · chỉ số cũ <output aria-label="Điện · chỉ số cũ">{eOld}</output>
-        </div>
-        {!perPersonWater && (
-          <div className="bill-line">
-            Nước · chỉ số cũ{" "}
-            <output aria-label="Nước · chỉ số cũ">{wOld}</output>
-          </div>
-        )}
-        <div className="invoice-formula" aria-label="Công thức tính hóa đơn">
-          <h3>Công thức tính</h3>
-          <p>
-            Ngày lập kỳ: 01/{period.slice(5, 7)}/{period.slice(0, 4)} · Hạn thu:
-            05/{period.slice(5, 7)}/{period.slice(0, 4)}.
-          </p>
-          <p>
-            Tiền phòng thu trước cho tháng {period}. Điện, nước, dịch vụ và máy
-            giặt tính cho tháng {previousMonth(period)}.
-          </p>
-          <p>
-            Tổng tiền = (Số điện mới − Số điện cũ) × Đơn giá điện +{" "}
-            {perPersonWater
-              ? "Số người × Đơn giá nước/người/tháng"
-              : "(Số nước mới − Số nước cũ) × Đơn giá nước"}{" "}
-            + Tiền phòng + Dịch vụ + Số người × Đơn giá máy giặt.
-          </p>
-          {readings && (
-            <>
-              <p>
-                Điện: ({readings.electricity} − {eOld}) ×{" "}
-                {money(rates.electricity)} ={" "}
-                <b>
-                  {money((readings.electricity - eOld) * rates.electricity)}
-                </b>
-              </p>
-              <p>
-                Nước:{" "}
-                {perPersonWater
-                  ? `${laundryPeople} người`
-                  : `(${readings.water} − ${wOld})`}{" "}
-                × {money(rates.water)} ={" "}
-                <b>
-                  {money(
-                    (perPersonWater ? laundryPeople : readings.water - wOld) *
-                      rates.water,
-                  )}
-                </b>
-              </p>
-            </>
-          )}
-          <p>
-            Tiền phòng: <b>{money(room.monthly_rent)}</b>
-          </p>
-          <p>
-            Dịch vụ: <b>{money(rates.trash + rates.wifi)}</b>/phòng/tháng
-          </p>
-          <p>
-            Máy giặt: {laundryPeople} người × {money(rates.laundry)}/người/tháng
-            = <b>{money(rates.laundry * laundryPeople)}</b>
-          </p>
-          {readings && (
-            <p>
-              Tổng tiền ={" "}
-              {money((readings.electricity - eOld) * rates.electricity)} +{" "}
-              {money(
-                (perPersonWater ? laundryPeople : readings.water - wOld) *
-                  rates.water,
-              )}{" "}
-              + {money(room.monthly_rent)} + {money(rates.trash + rates.wifi)} +{" "}
-              {money(rates.laundry * laundryPeople)} = <b>{money(preview!)}</b>
-            </p>
-          )}
-        </div>
-        <div className="bill-total" aria-live="polite">
-          Tổng tiền phòng phải đóng{" "}
-          <b>
-            {preview === null ? "Nhập chỉ số điện và nước" : money(preview)}
-          </b>
-        </div>
-        <p className="form-hint">
-          Kỳ {period} · Hạn thanh toán tự đặt: {deadline}. Tiền phòng và phí
-          tháng không tự chia theo ngày ở.
-        </p>
-      </DataForm>
-    </div>
-  );
-}
-
 function ContractUpload({
   org,
   room,
