@@ -2827,3 +2827,39 @@ header {
 [data-theme="dark"] nav button:hover {
   background: #294838;
 }
+
+.tenancy-summaries {
+  padding: 0 28px;
+}
+.tenancy-summary {
+  padding: 18px 0;
+  border-bottom: 1px solid var(--border);
+}
+.tenancy-summary dl {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin: 14px 0 0;
+}
+.tenancy-summary dt,
+.tenancy-summary small {
+  color: var(--muted);
+  font-size: 13px;
+}
+.tenancy-summary dd {
+  margin: 5px 0 0;
+  overflow-wrap: anywhere;
+}
+.tenancy-summary small {
+  display: block;
+  margin-top: 5px;
+}
+@media (max-width: 480px) {
+  .tenancy-summaries {
+    padding: 0 16px;
+  }
+  .tenancy-summary dl {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+}
