@@ -1528,31 +1528,6 @@ function Workspace({ session }: { session: Session }) {
                   </section>
                 </div>
               )}
-              {page === "room" &&
-                room &&
-                !data.operationsMigrationRequired &&
-                activeTenants(room.id).length > 0 && (
-                  <section
-                    className="panel contracts-panel"
-                    aria-label="Tiền đặt cọc của phòng"
-                  >
-                    <div className="panel-heading">
-                      <h2>Tiền đặt cọc</h2>
-                    </div>
-                    {activeTenants(room.id).map((t) => (
-                      <div className="room-tenant-deposit" key={t.id}>
-                        <h3>{t.full_name}</h3>
-                        <Deposits
-                          data={data}
-                          tenantId={t.id}
-                          org={org}
-                          canWrite={canWrite}
-                          onChanged={refresh}
-                        />
-                      </div>
-                    ))}
-                  </section>
-                )}
               {page === "room" && room && !data.operationsMigrationRequired && (
                 <MaintenancePanel
                   key={org + room.id}
@@ -1599,6 +1574,7 @@ function Workspace({ session }: { session: Session }) {
                         </button>
                       </div>
 
+                      <h3 className="history-title">Hợp đồng của người thuê</h3>
                       {!data.operationsMigrationRequired && (
                         <Deposits
                           data={data}
@@ -1608,7 +1584,6 @@ function Workspace({ session }: { session: Session }) {
                           onChanged={refresh}
                         />
                       )}
-                      <h3 className="history-title">Hợp đồng của người thuê</h3>
 
                       {data.contracts
                         .filter((c) =>

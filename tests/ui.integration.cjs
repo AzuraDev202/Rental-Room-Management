@@ -1507,6 +1507,19 @@ const uid = "00000000-0000-0000-0000-000000000001",
     0,
   );
   await page.getByRole("button", { name: "Đóng", exact: true }).click();
+  assert.equal(
+    await page
+      .getByRole("region", { name: "Tiền đặt cọc của phòng", exact: true })
+      .count(),
+    0,
+  );
+  await page.getByRole("button", { name: "Người thuê", exact: true }).click();
+  await page
+    .getByRole("row")
+    .filter({ hasText: "Water Tenant" })
+    .getByRole("button", { name: "Hợp đồng, hóa đơn & cọc", exact: true })
+    .click();
+
   await page
     .getByRole("button", { name: "Ghi nhận đặt cọc", exact: true })
     .click();
