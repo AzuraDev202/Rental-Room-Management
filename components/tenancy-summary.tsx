@@ -271,22 +271,26 @@ export function RoomLeaseEditor({
                 },
               ]
             : []),
-          {
-            name: "electricity",
-            label: "Số điện ban đầu (kWh)",
-            type: "number",
-            min: 0,
-            readOnly: locked,
-          },
-          ...(!perPerson
+          ...(onlyReadings
             ? [
                 {
-                  name: "water",
-                  label: "Số nước ban đầu (m³)",
+                  name: "electricity",
+                  label: "Số điện ban đầu (kWh)",
                   type: "number",
                   min: 0,
                   readOnly: locked,
                 },
+                ...(!perPerson
+                  ? [
+                      {
+                        name: "water",
+                        label: "Số nước ban đầu (m³)",
+                        type: "number",
+                        min: 0,
+                        readOnly: locked,
+                      },
+                    ]
+                  : []),
               ]
             : []),
         ]}
@@ -310,7 +314,7 @@ export function RoomLeaseEditor({
           setEditing(false);
         }}
       >
-        {locked && (
+        {onlyReadings && locked && (
           <p className="form-hint">
             Đã có hóa đơn: chỉ số ban đầu được giữ nguyên. Bạn vẫn có thể sửa
             ngày kết thúc và tiền cọc.
