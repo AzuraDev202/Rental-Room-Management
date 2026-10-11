@@ -1,10 +1,7 @@
 "use client";
 import { z } from "zod";
 import { Deposits } from "../components/deposits";
-import {
-  RoomLeaseSummary,
-  RoomLeaseEditor,
-} from "../components/tenancy-summary";
+import { RoomLeaseSummary } from "../components/tenancy-summary";
 import {
   FinancePanel,
   MaintenancePanel,
@@ -1338,15 +1335,6 @@ function Workspace({ session }: { session: Session }) {
                                   ? "Chưa ghi"
                                   : c.water_initial + " m³"}
                             </span>
-                            {canWrite && !data.operationsMigrationRequired && (
-                              <RoomLeaseEditor
-                                data={data}
-                                cycle={c}
-                                org={org}
-                                onChanged={refresh}
-                                onlyReadings
-                              />
-                            )}
                           </div>
                         ))}
                     </section>

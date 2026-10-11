@@ -190,14 +190,12 @@ export function RoomLeaseEditor({
   org,
   onChanged,
   endDate,
-  onlyReadings = false,
 }: {
   data: Data;
   cycle: BillingCycle;
   org: string;
   onChanged: () => Promise<void>;
   endDate?: string;
-  onlyReadings?: boolean;
 }) {
   const [editing, setEditing] = useState(false);
   const ids = new Set(
@@ -227,12 +225,8 @@ export function RoomLeaseEditor({
   const initialEnd = endDate ?? cycle.lease_ends_on ?? fallbackEnd ?? "";
   if (!editing)
     return (
-      <button
-        className="secondary"
-        disabled={onlyReadings && locked}
-        onClick={() => setEditing(true)}
-      >
-        {onlyReadings ? "Sửa chỉ số ban đầu" : "Sửa thông tin hợp đồng"}
+      <button className="secondary" onClick={() => setEditing(true)}>
+        Sửa thông tin hợp đồng
       </button>
     );
   const schema = z.object({
@@ -256,41 +250,29 @@ export function RoomLeaseEditor({
         key={cycle.id}
         schema={schema}
         fields={[
-          ...(!onlyReadings
+          { name: "end_date", label: "Ngày kết thúc hợp đồng", type: "date" },
+          {
+            name: "deposit_amount",
+            label: "Tiền cọc còn giữ của phòng (VNĐ)",
+            type: "number",
+            min: 0,
+          },
+          {
+            name: "electricity",
+            label: "Số điện ban đầu (kWh)",
+            type: "number",
+            min: 0,
+            readOnly: locked,
+          },
+          ...(!perPerson
             ? [
                 {
-                  name: "end_date",
-                  label: "Ngày kết thúc hợp đồng",
-                  type: "date",
-                },
-                {
-                  name: "deposit_amount",
-                  label: "Tiền cọc còn giữ của phòng (VNĐ)",
-                  type: "number",
-                  min: 0,
-                },
-              ]
-            : []),
-          ...(onlyReadings
-            ? [
-                {
-                  name: "electricity",
-                  label: "Số điện ban đầu (kWh)",
+                  name: "water",
+                  label: "Số nước ban đầu (m³)",
                   type: "number",
                   min: 0,
                   readOnly: locked,
                 },
-                ...(!perPerson
-                  ? [
-                      {
-                        name: "water",
-                        label: "Số nước ban đầu (m³)",
-                        type: "number",
-                        min: 0,
-                        readOnly: locked,
-                      },
-                    ]
-                  : []),
               ]
             : []),
         ]}
@@ -300,7 +282,7 @@ export function RoomLeaseEditor({
           electricity: cycle.electricity_initial ?? "",
           water: cycle.water_initial ?? 0,
         }}
-        submit={onlyReadings ? "Lưu chỉ số ban đầu" : "Lưu thông tin hợp đồng"}
+        submit="Lưu thông tin hợp đồng"
         onSubmit={async (v) => {
           await rpc("edit_room_lease", {
             org,
@@ -314,17 +296,15 @@ export function RoomLeaseEditor({
           setEditing(false);
         }}
       >
-        {onlyReadings && locked && (
+        {locked && (
           <p className="form-hint">
             Đã có hóa đơn: chỉ số ban đầu được giữ nguyên. Bạn vẫn có thể sửa
             ngày kết thúc và tiền cọc.
           </p>
         )}
-        {!onlyReadings && (
-          <p className="form-hint">
-            Sửa tiền cọc sẽ ghi giao dịch điều chỉnh và giữ lịch sử cũ.
-          </p>
-        )}
+        <p className="form-hint">
+          Sửa tiền cọc sẽ ghi giao dịch điều chỉnh và giữ lịch sử cũ.
+        </p>
       </DataForm>
       <button className="text-button" onClick={() => setEditing(false)}>
         Hủy sửa
