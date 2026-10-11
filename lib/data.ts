@@ -62,7 +62,7 @@ export async function rows(table: string, org: string) {
   }
   return output;
 }
-export async function loadData(org: string, admin: boolean): Promise<Data> {
+export async function loadData(org: string, _admin: boolean): Promise<Data> {
   const tables = [
     "properties",
     "rooms",
@@ -78,7 +78,6 @@ export async function loadData(org: string, admin: boolean): Promise<Data> {
     "deposit_entries",
     "expenses",
     "maintenance_requests",
-    ...(admin ? ["invitations"] : []),
   ];
   let operationsMigrationRequired = false;
   const operationTables = [
@@ -119,7 +118,7 @@ export async function loadData(org: string, admin: boolean): Promise<Data> {
     deposits: result[11],
     expenses: result[12],
     maintenance: result[13],
-    invitations: result[14] || [],
+    invitations: [],
   } as unknown as Data;
 }
 export async function rpc(name: string, args: Record<string, unknown>) {

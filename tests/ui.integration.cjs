@@ -82,6 +82,7 @@ const uid = "00000000-0000-0000-0000-000000000001",
       "013_advance_fixed_fees",
       "014_water_person_only",
       "015_manager_only",
+      "016_private_workspace_owner",
     ])
       await db.exec(
         fs.readFileSync(
@@ -494,29 +495,19 @@ const uid = "00000000-0000-0000-0000-000000000001",
       4130,
     );
     await page.getByRole("button", { name: "Cài đặt", exact: true }).click();
-    await page
-      .getByRole("heading", { name: "Người quản lý", exact: true })
-      .waitFor();
-    assert.equal(await page.getByLabel(/Vai trò của/).count(), 0);
-    await page
-      .getByRole("button", { name: "Thêm người quản lý", exact: true })
-      .click();
-    assert.equal(await page.getByLabel("Vai trò", { exact: true }).count(), 0);
-    await page
-      .getByLabel("Email", { exact: true })
-      .fill("new.manager@test.invalid");
-    await page
-      .getByRole("button", { name: "Lưu lời mời", exact: true })
-      .click();
-    await page.getByText("Đã tạo lời mời", { exact: true }).waitFor();
     assert.equal(
-      (
-        await db.query(
-          "select role from invitations where email='new.manager@test.invalid'",
-        )
-      ).rows[0].role,
-      "admin",
+      await page
+        .getByRole("button", { name: "Thêm người quản lý", exact: true })
+        .count(),
+      0,
     );
+    assert.equal(
+      await page
+        .getByRole("button", { name: "Nhận lời mời mới", exact: true })
+        .count(),
+      0,
+    );
+    assert.equal(await page.locator(".team-panel").count(), 0);
     assert.equal(errors.length, 0);
     console.log(
       "PASS: prorated arrival bill has no meter inputs, water per-person and contract-only baseline editor, regular advance fixed fees plus previous-month electricity, mobile layouts and persisted totals",

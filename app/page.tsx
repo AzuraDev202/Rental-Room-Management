@@ -64,7 +64,6 @@ import {
   invoiceSchema,
   initialReadingsSchema,
   paymentSchema,
-  inviteSchema,
   workspaceSchema,
   contractSchema,
   deletePropertySchema,
@@ -231,7 +230,6 @@ function Workspace({ session }: { session: Session }) {
     [toast, setToast] = useState(""),
     [tenant, setTenant] = useState<Tenant | null>(null),
     [invoice, setInvoice] = useState<Invoice | null>(null),
-    [memberToRemove, setMemberToRemove] = useState<Membership | null>(null),
     [chartProperty, setChartProperty] = useState(""),
     [busy, setBusy] = useState(false),
     [documentTarget, setDocumentTarget] = useState<{
@@ -245,7 +243,6 @@ function Workspace({ session }: { session: Session }) {
     data.members.find((m) => m.user_id === session.user.id) ||
     memberships.find((m) => m.organization_id === org);
   const canWrite = !!member;
-  const admin = !!member;
   const name =
     member?.display_name ||
     String(session.user.user_metadata.display_name || session.user.email || "");
@@ -540,10 +537,7 @@ function Workspace({ session }: { session: Session }) {
       <div className="auth-page">
         <section className="auth-card setup-card">
           <h1>Không gian quản lý đầu tiên</h1>
-          <p>
-            Tạo không gian mới, hoặc nhận quyền truy cập được người quản lý thêm
-            cho email của bạn.
-          </p>
+          <p>Tạo không gian riêng để quản lý các căn hộ của bạn.</p>
           {error && (
             <p className="form-error" role="alert">
               {error}
@@ -567,27 +561,6 @@ function Workspace({ session }: { session: Session }) {
               await refreshMemberships();
             }}
           />
-          <button
-            className="secondary wide"
-            disabled={busy}
-            onClick={() =>
-              act(async () => {
-                const n = await rpc("accept_invitations", {
-                  member_name: String(
-                    session.user.user_metadata.display_name ||
-                      session.user.email,
-                  ),
-                });
-                if (!n)
-                  throw new Error(
-                    "Chưa có lời mời cho email " + session.user.email,
-                  );
-                await refreshMemberships();
-              }, "Đã nhận quyền truy cập")
-            }
-          >
-            Nhận lời mời cho {session.user.email}
-          </button>
           <button className="text-button wide" disabled={busy} onClick={logout}>
             Đăng xuất
           </button>
@@ -1761,108 +1734,6 @@ function Workspace({ session }: { session: Session }) {
                       }}
                     />
                   )}
-                  <section className="panel team-panel">
-                    <div className="panel-heading">
-                      <div>
-                        <h2>Người quản lý</h2>
-                        <p>
-                          Thêm người quản lý bằng email. Mọi người quản lý có
-                          đầy đủ quyền trong không gian này.
-                        </p>
-                      </div>
-                      {admin && (
-                        <button
-                          className="secondary"
-                          onClick={() => setModal("invite")}
-                        >
-                          <Plus size={15} /> Thêm người quản lý
-                        </button>
-                      )}
-                    </div>
-                    <div className="table-wrap">
-                      <table>
-                        <thead>
-                          <tr>
-                            <th>THÀNH VIÊN</th>
-                            <th>EMAIL</th>
-                            {admin && <th>THAO TÁC</th>}
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {data.members.map((m) => (
-                            <tr key={m.user_id}>
-                              <td>{m.display_name}</td>
-                              <td>{m.email}</td>
-                              {admin && (
-                                <td>
-                                  <button
-                                    className="text-button danger-button"
-                                    disabled={
-                                      busy || m.user_id === session.user.id
-                                    }
-                                    aria-label={`Xóa người dùng ${m.display_name}`}
-                                    onClick={() => {
-                                      setMemberToRemove(m);
-                                      setModal("member-remove");
-                                    }}
-                                  >
-                                    Xóa người dùng
-                                  </button>
-                                </td>
-                              )}
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                    {admin && data.invitations.length > 0 && (
-                      <div className="invitations">
-                        <h3>Đang chờ nhận quyền</h3>
-                        {data.invitations.map((i) => (
-                          <div className="bill-line" key={i.id}>
-                            <span>
-                              {i.email} · {roleNames[i.role]}
-                            </span>
-                            <button
-                              className="text-button"
-                              disabled={busy}
-                              onClick={() =>
-                                act(async () => {
-                                  const { error } = await supabase!
-                                    .from("invitations")
-                                    .delete()
-                                    .eq("id", i.id)
-                                    .eq("organization_id", org);
-                                  if (error) throw databaseError(error);
-                                }, "Đã hủy lời mời")
-                              }
-                            >
-                              Hủy
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                    <div className="team-actions">
-                      <button
-                        className="secondary"
-                        disabled={busy}
-                        onClick={() =>
-                          act(async () => {
-                            const n = await rpc("accept_invitations", {
-                              member_name: name,
-                            });
-                            if (!n)
-                              throw new Error(
-                                "Chưa có lời mời mới cho tài khoản này",
-                              );
-                          }, "Đã nhận quyền truy cập mới")
-                        }
-                      >
-                        Nhận lời mời mới
-                      </button>
-                    </div>
-                  </section>
                 </>
               )}
             </>
@@ -1908,53 +1779,6 @@ function Workspace({ session }: { session: Session }) {
             >
               <X size={20} />
             </button>
-            {modal === "member-remove" && memberToRemove && admin && (
-              <>
-                <h2>Xóa người dùng khỏi không gian</h2>
-                <p>
-                  {memberToRemove.display_name} · {memberToRemove.email}
-                </p>
-                <p>
-                  Người này sẽ mất quyền truy cập không gian hiện tại. Tài khoản
-                  đăng nhập, quyền ở không gian khác và mọi dữ liệu căn hộ,
-                  người thuê, hóa đơn vẫn được giữ nguyên.
-                </p>
-                <DataForm
-                  defaults={{ confirmation_email: "" }}
-                  fields={[
-                    {
-                      name: "confirmation_email",
-                      label: "Nhập email người dùng để xác nhận",
-                      type: "email",
-                    },
-                  ]}
-                  schema={z.object({
-                    confirmation_email: z
-                      .string()
-                      .trim()
-                      .email()
-                      .refine(
-                        (value) =>
-                          value.toLowerCase() ===
-                          memberToRemove.email.toLowerCase(),
-                        "Email xác nhận không khớp",
-                      ),
-                  })}
-                  submit="Xác nhận xóa người dùng"
-                  onSubmit={(values) =>
-                    save(
-                      () =>
-                        rpc("remove_workspace_member", {
-                          org,
-                          target_user: memberToRemove.user_id,
-                          confirmation_email: values.confirmation_email,
-                        }),
-                      "Đã xóa quyền truy cập của người dùng",
-                    )
-                  }
-                />
-              </>
-            )}
             {modal === "property-delete" && property && (
               <>
                 <h2>Xóa căn hộ {property.name}?</h2>
@@ -2477,28 +2301,6 @@ function Workspace({ session }: { session: Session }) {
                     await refresh();
                     notify("Đã lưu hợp đồng");
                   }}
-                />
-              </>
-            )}
-            {modal === "invite" && (
-              <>
-                <h2>Thêm người quản lý</h2>
-                <p>
-                  Người được mời đăng ký bằng email này và chọn “Nhận lời mời”.
-                  Ứng dụng không tự gửi email mời.
-                </p>
-                <DataForm
-                  schema={inviteSchema}
-                  fields={[{ name: "email", label: "Email", type: "email" }]}
-                  defaults={{ email: "", role: "admin" }}
-                  submit="Lưu lời mời"
-                  onSubmit={(v) =>
-                    save(
-                      () =>
-                        insert("invitations", { ...v, organization_id: org }),
-                      "Đã tạo lời mời",
-                    )
-                  }
                 />
               </>
             )}
