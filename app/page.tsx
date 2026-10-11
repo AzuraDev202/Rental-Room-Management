@@ -1074,7 +1074,16 @@ function Workspace({ session }: { session: Session }) {
                       )
                       .map((r) => (
                         <button
-                          className="room-card"
+                          className={
+                            "room-card room-tone-" +
+                            (!activeTenants(r.id).length
+                              ? "vacant"
+                              : roomAlerts(data, r.id).overdue
+                                ? "overdue"
+                                : roomAlerts(data, r.id).debt > 0
+                                  ? "pending"
+                                  : "occupied")
+                          }
                           key={r.id}
                           onClick={() => openRoom(r)}
                         >
@@ -1763,6 +1772,30 @@ function Workspace({ session }: { session: Session }) {
           </footer>
         </main>
       </div>
+      <nav className="mobile-bottom-nav" aria-label="Điều hướng chính">
+        {[
+          ["dashboard", "Tổng quan", LayoutDashboard],
+          ["properties", "Căn hộ", Building2],
+          ["tenants", "Người thuê", Users],
+          ["settings", "Cài đặt", Settings],
+        ].map(([id, label, Icon]) => {
+          const ItemIcon = Icon as typeof Home;
+          const active =
+            page === id ||
+            (id === "properties" && ["property", "room"].includes(page));
+          return (
+            <button
+              key={String(id)}
+              aria-current={active ? "page" : undefined}
+              className={active ? "active" : ""}
+              onClick={() => navigate(String(id))}
+            >
+              <ItemIcon size={21} />
+              <span>{String(label)}</span>
+            </button>
+          );
+        })}
+      </nav>
       {toast && (
         <div className="toast" role="status">
           <Check size={18} />

@@ -411,6 +411,26 @@ const uid = "00000000-0000-0000-0000-000000000001",
         ],
       );
     await page.reload({ waitUntil: "networkidle" });
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page
+      .getByRole("heading", { name: "Việc cần xử lý", exact: true })
+      .waitFor();
+    await page.waitForFunction(
+      () =>
+        document.querySelector(".sidebar").getBoundingClientRect().right <= 1,
+    );
+    await page.screenshot({
+      path: "/tmp/hh-new-dashboard-mobile.png",
+      fullPage: true,
+    });
+    assert.equal(
+      await page
+        .getByRole("navigation", { name: "Điều hướng chính", exact: true })
+        .isVisible(),
+      true,
+    );
+    await page.setViewportSize({ width: 1440, height: 1000 });
+
     await page.getByRole("button", { name: /^Căn hộ/ }).click();
     await page
       .getByRole("button", { name: /Advance Building Advance Address/ })
@@ -455,6 +475,14 @@ const uid = "00000000-0000-0000-0000-000000000001",
         false,
       );
     }
+    await page.waitForFunction(
+      () =>
+        document.querySelector(".sidebar").getBoundingClientRect().right <= 1,
+    );
+    await page.screenshot({
+      path: "/tmp/hh-new-room-mobile.png",
+      fullPage: true,
+    });
     await page.setViewportSize({ width: 1440, height: 1000 });
     await page
       .getByRole("button", { name: "Lập hóa đơn", exact: true })
@@ -508,6 +536,42 @@ const uid = "00000000-0000-0000-0000-000000000001",
       0,
     );
     assert.equal(await page.locator(".team-panel").count(), 0);
+    await page.getByRole("switch", { name: "Chế độ tối", exact: true }).click();
+    await page.waitForFunction(
+      () => document.documentElement.dataset.theme === "dark",
+    );
+    await page.getByRole("button", { name: "Tổng quan", exact: true }).click();
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.waitForFunction(
+      () =>
+        document.querySelector(".sidebar").getBoundingClientRect().right <= 1,
+    );
+    assert.equal(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth > innerWidth,
+      ),
+      false,
+    );
+    assert.equal(
+      await page
+        .locator(".stats .stat-top")
+        .first()
+        .evaluate((el) => getComputedStyle(el).color),
+      "rgb(255, 255, 255)",
+    );
+    assert.equal(
+      await page.evaluate(() =>
+        getComputedStyle(document.documentElement)
+          .getPropertyValue("--bg")
+          .trim(),
+      ),
+      "#132019",
+    );
+    await page.screenshot({
+      path: "/tmp/hh-new-dashboard-dark-mobile.png",
+      fullPage: false,
+    });
+
     assert.equal(errors.length, 0);
     console.log(
       "PASS: prorated arrival bill has no meter inputs, water per-person and contract-only baseline editor, regular advance fixed fees plus previous-month electricity, mobile layouts and persisted totals",
