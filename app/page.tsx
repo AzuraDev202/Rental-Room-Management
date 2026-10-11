@@ -1329,11 +1329,13 @@ function Workspace({ session }: { session: Session }) {
                                 ? "Chưa ghi"
                                 : c.electricity_initial + " kWh"}{" "}
                               · Nước:{" "}
-                              {c.water_meter_ready === false
-                                ? "Không dùng chỉ số"
-                                : c.water_initial === null
-                                  ? "Chưa ghi"
-                                  : c.water_initial + " m³"}
+                              {roomRates?.water_mode === "person"
+                                ? "Tính theo người/tháng"
+                                : c.water_meter_ready === false
+                                  ? "Không dùng chỉ số"
+                                  : c.water_initial === null
+                                    ? "Chưa ghi"
+                                    : c.water_initial + " m³"}
                             </span>
                           </div>
                         ))}

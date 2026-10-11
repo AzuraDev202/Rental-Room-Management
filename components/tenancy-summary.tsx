@@ -242,7 +242,9 @@ export function RoomLeaseEditor({
       .nonnegative()
       .max(Number.MAX_SAFE_INTEGER),
     electricity: z.coerce.number().int().min(0).max(2147483647),
-    water: z.coerce.number().int().min(0).max(2147483647),
+    water: perPerson
+      ? z.null().optional()
+      : z.coerce.number().int().min(0).max(2147483647),
   });
   return (
     <div className="lease-editor">
@@ -280,7 +282,7 @@ export function RoomLeaseEditor({
           end_date: initialEnd,
           deposit_amount: held,
           electricity: cycle.electricity_initial ?? "",
-          water: cycle.water_initial ?? 0,
+          water: perPerson ? null : (cycle.water_initial ?? 0),
         }}
         submit="Lưu thông tin hợp đồng"
         onSubmit={async (v) => {
@@ -296,6 +298,11 @@ export function RoomLeaseEditor({
           setEditing(false);
         }}
       >
+        {perPerson && (
+          <p className="form-hint">
+            Nước tính theo đ/người/tháng, không cần số nước ban đầu.
+          </p>
+        )}
         {locked && (
           <p className="form-hint">
             Đã có hóa đơn: chỉ số ban đầu được giữ nguyên. Bạn vẫn có thể sửa

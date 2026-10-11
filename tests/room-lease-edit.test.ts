@@ -70,7 +70,7 @@ test("room lease edits preserve invoices and deposit history", async () => {
       "select billing_cycle_id as id from tenants where id=$1",
       [tenant],
     );
-    const edit = (end: string, deposit: number, e: number, w: number) =>
+    const edit = (end: string, deposit: number, e: number, w: number | null) =>
       db.query("select edit_room_lease($1,$2,$3,$4,$5,$6)", [
         org,
         cycle,
@@ -132,6 +132,23 @@ test("room lease edits preserve invoices and deposit history", async () => {
     ).rows;
     await assert.rejects(edit("2021-02-01", 800, 116, 215), /đã có hóa đơn/);
     await edit("2021-02-01", 800, 115, 215);
+    assert.deepEqual(
+      (await db.query("select total from invoices where id=$1", [invoice]))
+        .rows,
+      before,
+    );
+    await db.query(
+      "update property_service_rates set water_mode='person' where property_id=$1",
+      [prop],
+    );
+    await edit("2021-03-01", 800, 115, null);
+    const water = (
+      await db.query<{ water_initial: number }>(
+        "select water_initial from room_billing_cycles where id=$1",
+        [cycle],
+      )
+    ).rows[0].water_initial;
+    assert.equal(water, 215);
     assert.deepEqual(
       (await db.query("select total from invoices where id=$1", [invoice]))
         .rows,
