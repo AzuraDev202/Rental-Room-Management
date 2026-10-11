@@ -950,7 +950,7 @@ const uid = "00000000-0000-0000-0000-000000000001",
     await page
       .getByRole("row")
       .filter({ hasText: name })
-      .getByRole("button", { name: "Chi tiết" })
+      .getByRole("button", { name: "Hợp đồng, hóa đơn & cọc", exact: true })
       .click();
     await page
       .getByRole("button", { name: "Xem hợp đồng", exact: true })
@@ -966,9 +966,6 @@ const uid = "00000000-0000-0000-0000-000000000001",
       .getByRole("button", { name: "Xem hóa đơn", exact: true })
       .click();
     await page.getByRole("heading", { name: "Lịch sử thanh toán" }).waitFor();
-    await page
-      .getByRole("button", { name: "Quay lại hồ sơ người thuê" })
-      .click();
     await page.getByRole("button", { name: "Đóng" }).click();
   };
   await goToArchiveRoom(2);

@@ -16,11 +16,13 @@ export function TenantDirectory({
   canWrite,
   add,
   detail,
+  records,
 }: {
   data: Data;
   canWrite: boolean;
   add: () => void;
   detail: (tenant: Tenant) => void;
+  records: (tenant: Tenant) => void;
 }) {
   const [status, setStatus] = useState<string>("Đang ở"),
     [propertyId, setPropertyId] = useState(""),
@@ -225,6 +227,12 @@ export function TenantDirectory({
                             onClick={() => detail(t)}
                           >
                             Chi tiết <ArrowRight size={14} />
+                          </button>
+                          <button
+                            className="text-button"
+                            onClick={() => records(t)}
+                          >
+                            Hợp đồng, hóa đơn & cọc
                           </button>
                         </td>
                       </tr>
