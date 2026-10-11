@@ -3344,3 +3344,38 @@ body {
     scroll-behavior: auto !important;
   }
 }
+
+.invoice-notify-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 4px 12px 4px 0;
+  white-space: nowrap;
+}
+.invoice-notification-dialog {
+  border: 1px solid var(--border);
+  color: var(--ink);
+  background: var(--surface, white);
+  text-align: left;
+  margin: auto;
+}
+.invoice-notification-dialog::backdrop {
+  background: #162e2866;
+  backdrop-filter: blur(4px);
+}
+.invoice-notification-preview {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  margin: 16px 0;
+  padding: 12px;
+  line-height: 1.6;
+  resize: vertical;
+  font-size: 16px;
+}
+.invoice-notification-dialog .primary {
+  width: 100%;
+}
+[data-theme="dark"] .invoice-notification-dialog {
+  background: #1b2d24;
+}

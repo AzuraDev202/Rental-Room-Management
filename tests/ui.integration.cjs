@@ -488,6 +488,32 @@ const uid = "00000000-0000-0000-0000-000000000001",
       .getByRole("button", { name: "Lập hóa đơn", exact: true })
       .click();
     await page.getByText("Đã lập hóa đơn", { exact: true }).waitFor();
+    await page
+      .getByRole("button", { name: "Gửi thông báo", exact: true })
+      .click();
+    const notification = page.getByRole("dialog", {
+      name: "Thông báo hóa đơn Zalo",
+    });
+    await notification.waitFor();
+    assert.match(
+      await notification.getByLabel("Nội dung thông báo").inputValue(),
+      /Advance Building · Phòng 1/,
+    );
+    assert.match(await notification.innerText(), /Chưa kết nối Zalo OA/);
+    await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+    await notification
+      .getByRole("button", { name: "Sao chép thông báo" })
+      .click();
+    await notification
+      .getByRole("status")
+      .getByText(/Đã sao chép/)
+      .waitFor();
+    assert.equal(
+      await page.evaluate(() => navigator.clipboard.readText()),
+      await notification.getByLabel("Nội dung thông báo").inputValue(),
+    );
+    await page.keyboard.press("Escape");
+    assert.equal(await notification.isVisible(), false);
     const stored = (
       await db.query("select total,due_date from invoices where room_id=$1", [
         rooms[0].id,

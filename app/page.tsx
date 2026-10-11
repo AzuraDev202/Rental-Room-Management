@@ -1,5 +1,6 @@
 "use client";
 import { z } from "zod";
+import { InvoiceNotification } from "../components/invoice-notification";
 import { AdvanceInvoiceForm as InvoiceForm } from "../components/advance-invoice-form";
 import { Deposits } from "../components/deposits";
 import { RoomLeaseSummary } from "../components/tenancy-summary";
@@ -2477,6 +2478,7 @@ function Invoices({
                   </span>
                 </td>
                 <td data-label="Thao tác">
+                  {canWrite && <InvoiceNotification invoice={i} data={data} />}
                   {canWrite && remaining > 0 && (
                     <button className="text-button" onClick={() => pay(i)}>
                       Thu tiền
