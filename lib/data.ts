@@ -4,6 +4,13 @@ export function databaseError(error: {
   message: string;
   code?: string;
 }): Error {
+  if (
+    error.code === "PGRST202" &&
+    error.message.includes("create_monthly_invoice")
+  )
+    return new Error(
+      "Cần chạy toàn bộ SQL trong migration 202610080011_monthly_billing_schedule.sql sau migration 010 để lập hóa đơn theo lịch mới.",
+    );
   if (error.code === "23505")
     return new Error("Thông tin đã tồn tại (tên, CCCD hoặc kỳ hóa đơn).");
   if (error.code === "23503")

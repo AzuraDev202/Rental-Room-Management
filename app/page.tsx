@@ -79,6 +79,7 @@ import {
   calculateBill,
   tenantStatus,
   nextMonth,
+  previousMonth,
   documentTenants,
   isCurrentDocument,
   revenueSeries,
@@ -457,13 +458,14 @@ function Workspace({ session }: { session: Session }) {
         .filter(
           (c) =>
             c.room_id === room.id &&
-            c.starts_on < nextMonth(period) &&
+            c.starts_on < period + "-01" &&
             data.tenants.some(
               (t) =>
                 t.billing_cycle_id === c.id &&
                 t.move_in < nextMonth(period) &&
                 (!t.move_out ||
-                  (t.move_out > period + "-01" && t.move_out > t.move_in)),
+                  (t.move_out > previousMonth(period) + "-01" &&
+                    t.move_out > t.move_in)),
             ),
         )
         .sort((a, b) => b.starts_on.localeCompare(a.starts_on))
@@ -1338,6 +1340,11 @@ function Workspace({ session }: { session: Session }) {
                     <div className="panel-heading">
                       <div>
                         <h2>Lập hóa đơn</h2>
+                        <p>
+                          Thu tiền phòng tháng {period} và chi phí tháng{" "}
+                          {previousMonth(period)}. Phòng mới không lập hóa đơn
+                          tháng vào ở.
+                        </p>
                       </div>
                       <ReceiptText size={19} />
                     </div>
@@ -1463,24 +1470,36 @@ function Workspace({ session }: { session: Session }) {
                         period={period}
                         previous={previous || null}
                         baseline={billingCycle}
-                        room={room}
+                        room={{
+                          ...room,
+                          monthly_rent: data.tenants.some(
+                            (t) =>
+                              t.billing_cycle_id === billingCycle.id &&
+                              t.move_in < nextMonth(period) &&
+                              (!t.move_out ||
+                                (t.move_out > period + "-01" &&
+                                  t.move_out > t.move_in)),
+                          )
+                            ? room.monthly_rent
+                            : 0,
+                        }}
                         rates={roomRates}
                         laundryPeople={
                           data.tenants.filter(
                             (t) =>
                               t.room_id === room.id &&
                               t.billing_cycle_id === billingCycle.id &&
-                              t.move_in < nextMonth(period) &&
+                              t.move_in < period + "-01" &&
                               t.move_in <= localDay() &&
                               (!t.move_out ||
-                                (t.move_out > period + "-01" &&
+                                (t.move_out > previousMonth(period) + "-01" &&
                                   t.move_out > t.move_in)),
                           ).length
                         }
                         onSubmit={(v) =>
                           save(
                             () =>
-                              rpc("create_water_invoice", {
+                              rpc("create_monthly_invoice", {
                                 org,
                                 target_room: room.id,
                                 target_cycle: billingCycle!.id,
@@ -1499,7 +1518,7 @@ function Workspace({ session }: { session: Session }) {
                       <Empty
                         title={
                           !billingCycle
-                            ? "Chưa có đợt thuê trong tháng"
+                            ? "Chưa đến kỳ lập hóa đơn"
                             : billingCycle.electricity_initial === null &&
                                 !previous
                               ? "Chưa có mốc nhận phòng"
@@ -1512,7 +1531,7 @@ function Workspace({ session }: { session: Session }) {
                         }
                         detail={
                           !billingCycle
-                            ? "Chọn tháng có người ở hoặc thêm người thuê khi phòng trống nhận người mới."
+                            ? "Phòng mới bắt đầu lập hóa đơn từ tháng sau tháng vào ở. Chọn kỳ phù hợp để tiếp tục."
                             : billingCycle.electricity_initial === null &&
                                 !previous
                               ? "Ghi mốc điện/nước trước khi lập hóa đơn đầu tiên của đợt thuê."
@@ -2425,6 +2444,11 @@ function Workspace({ session }: { session: Session }) {
                     ],
                     ["Tổng hóa đơn", money(invoice.total)],
                     ["Còn phải thu", money(balance(invoice, data.payments))],
+                    ["Tháng tiền phòng", invoice.period.slice(0, 7)],
+                    [
+                      "Tháng chi phí dịch vụ",
+                      (invoice.service_period || invoice.period).slice(0, 7),
+                    ],
                     ["Hạn thanh toán", invoice.due_date],
                   ].map(([k, v]) => (
                     <div key={k}>
@@ -2685,7 +2709,7 @@ function InvoiceForm({
     previous?.water_mode === "person" && !perPersonWater
       ? (baseline.water_initial ?? 0)
       : (previous?.water_new ?? baseline.water_initial ?? 0);
-  const deadline = nextMonth(period).slice(0, 7) + "-05";
+  const deadline = period + "-05";
   const [readings, setReadings] = useState<{
     electricity: number;
     water: number;
@@ -2767,6 +2791,14 @@ function InvoiceForm({
         )}
         <div className="invoice-formula" aria-label="Công thức tính hóa đơn">
           <h3>Công thức tính</h3>
+          <p>
+            Ngày lập kỳ: 01/{period.slice(5, 7)}/{period.slice(0, 4)} · Hạn thu:
+            05/{period.slice(5, 7)}/{period.slice(0, 4)}.
+          </p>
+          <p>
+            Tiền phòng thu trước cho tháng {period}. Điện, nước, dịch vụ và máy
+            giặt tính cho tháng {previousMonth(period)}.
+          </p>
           <p>
             Tổng tiền = (Số điện mới − Số điện cũ) × Đơn giá điện +{" "}
             {perPersonWater

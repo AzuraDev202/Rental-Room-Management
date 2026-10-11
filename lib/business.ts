@@ -9,6 +9,11 @@ export const localDay = (date = new Date()) =>
     day: "2-digit",
   }).format(date);
 export const currentMonth = () => localDay().slice(0, 7);
+export function previousMonth(period: string) {
+  const date = new Date(period.slice(0, 7) + "-01T00:00:00Z");
+  date.setUTCMonth(date.getUTCMonth() - 1);
+  return date.toISOString().slice(0, 7);
+}
 export function balance(invoice: Invoice, payments: Payment[]) {
   return Math.max(
     0,

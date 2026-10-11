@@ -68,7 +68,11 @@ export function billingToPrepare(data: Data, day = localDay()) {
     (r) =>
       data.properties.some((p) => p.id === r.property_id && !p.deleted_at) &&
       data.tenants.some(
-        (t) => t.room_id === r.id && tenantStatus(t, day) === "Đang ở",
+        (t) =>
+          t.room_id === r.id &&
+          tenantStatus(t, day) === "Đang ở" &&
+          (data.billingCycles.find((c) => c.id === t.billing_cycle_id)
+            ?.starts_on || t.move_in) < period,
       ) &&
       !data.invoices.some(
         (i) =>

@@ -50,6 +50,7 @@ export type Rates = {
   laundry: number;
 };
 export type Invoice = {
+  service_period?: string | null;
   billing_cycle_id: string | null;
   id: string;
   organization_id: string;
