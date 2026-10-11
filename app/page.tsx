@@ -2,8 +2,8 @@
 import { z } from "zod";
 import { Deposits } from "../components/deposits";
 import {
-  TenancySummary,
   RoomLeaseSummary,
+  RoomLeaseEditor,
 } from "../components/tenancy-summary";
 import {
   FinancePanel,
@@ -1260,7 +1260,13 @@ function Workspace({ session }: { session: Session }) {
                           </button>
                         )}
                       </div>
-                      <RoomLeaseSummary data={data} roomId={room.id} />
+                      <RoomLeaseSummary
+                        data={data}
+                        roomId={room.id}
+                        org={org}
+                        canWrite={canWrite}
+                        onChanged={refresh}
+                      />
                       {currentRoomContracts.map((c) => (
                         <div className="contract" key={c.id}>
                           <FileText size={25} />
@@ -1332,6 +1338,15 @@ function Workspace({ session }: { session: Session }) {
                                   ? "Chưa ghi"
                                   : c.water_initial + " m³"}
                             </span>
+                            {canWrite && !data.operationsMigrationRequired && (
+                              <RoomLeaseEditor
+                                data={data}
+                                cycle={c}
+                                org={org}
+                                onChanged={refresh}
+                                onlyReadings
+                              />
+                            )}
                           </div>
                         ))}
                     </section>

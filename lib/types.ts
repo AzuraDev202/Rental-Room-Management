@@ -108,6 +108,7 @@ export type ContractTenant = {
   tenant_id: string;
 };
 export type BillingCycle = {
+  lease_ends_on?: string | null;
   id: string;
   organization_id: string;
   room_id: string;
